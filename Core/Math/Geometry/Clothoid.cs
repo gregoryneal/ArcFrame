@@ -2,7 +2,6 @@
 using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
 using ArcFrame.Solvers;
-using System.Security.Cryptography;
 
 namespace ArcFrame.Core.Geometry
 {

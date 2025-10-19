@@ -1,5 +1,5 @@
-﻿using ArcFrame.Core.Results;
-using ArcFrame.Core.Math;
+﻿using ArcFrame.Core.Math;
+using ArcFrame.Core.Results;
 
 namespace ArcFrame.Core.Geometry.Splines
 {
@@ -15,7 +15,7 @@ namespace ArcFrame.Core.Geometry.Splines
         /// <summary>
         /// Our spline points
         /// </summary>
-        readonly double[][] P; 
+        readonly double[][] P;
         readonly double alpha;
         readonly ArcLengthTable table;
         public int Dimension => P[0].Length;
@@ -50,7 +50,7 @@ namespace ArcFrame.Core.Geometry.Splines
             var p2 = P[k + 2];
             var p3 = P[k + 3];
             // centripetal parameterization
-            double[] ts = new double[4]; 
+            double[] ts = new double[4];
             ts[0] = 0;
             ts[1] = ts[0] + System.Math.Pow(Helpers.Len(Helpers.Subtract(p0, p1)), alpha);
             ts[2] = ts[1] + System.Math.Pow(Helpers.Len(Helpers.Subtract(p1, p2)), alpha);

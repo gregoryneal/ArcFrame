@@ -16,7 +16,7 @@ namespace ArcFrame.Core.Constraints
         double[] Residual(CurveSpec spec);
         /// <summary>Optional global weight to scale all residuals for this constraint.</summary>
         double Weight => 1.0;
-        int SegmentIndex { get; }            // which segment (for composite problems)
+        int SegmentIndex { get; }            // which segment this piece came from (for composite problems)
     }
 
     /// Composite constraint (can see several CurveSpecs at once).
@@ -25,22 +25,31 @@ namespace ArcFrame.Core.Constraints
         ConstraintType Type { get; }
         double Weight { get; }               // multiplies the whole residual block
         double[] Residual(IReadOnlyList<CurveSpec> specs);
+        public void ShowInfo();
     }
 
-    /// Adapter to use any ICurveConstraint in a composite problem.
-    public sealed class SegmentConstraintWrapper : ICompositeConstraint
+    /// <summary>
+    /// Represents a regularizer that applies a penalty to the slope of the curvature parameter in order to
+    /// encourage smoother solutions.
+    /// </summary>
+    /// <remarks>This regularizer is used to penalize the magnitude of the change in curvature (dk)
+    /// for a specific segment of the curve. It is typically applied in optimization problems to favor solutions
+    /// with smaller slope variations, resulting in smoother curves.</remarks>
+    public sealed class SlopeRegularizer : ICurveConstraint
     {
-        private readonly ICurveConstraint _inner;
-        public SegmentConstraintWrapper(ICurveConstraint inner) { _inner = inner; }
-        public ConstraintType Type => _inner.Type;
-        public double Weight => _inner.Weight;
+        public ConstraintType Type { get; } = ConstraintType.Soft;
+        public double Weight { get; }
+        public int SegmentIndex { get; }
 
-        public double[] Residual(IReadOnlyList<CurveSpec> specs)
+        public SlopeRegularizer(int segIdx, double weight) { SegmentIndex = segIdx; Weight = weight; }
+
+        public double[] Residual(CurveSpec spec)
         {
-            var res = _inner.Residual(specs[_inner.SegmentIndex]);
-            if (Weight != 1.0)
-                for (int i = 0; i < res.Length; i++) res[i] *= Weight;
-            return res;
+            // Penalize dk magnitude: weight * dk
+            var p = (spec.Kappa as IParamCurvatureLaw)?.GetParams();
+            // For LinearCurvatureLawParamAdapter: p = [k0, dk]
+            double dk = (p != null && p.Length >= 2) ? p[1] : 0.0;
+            return new[] { Weight * dk };
         }
     }
 
@@ -101,14 +110,14 @@ namespace ArcFrame.Core.Constraints
         public double wT { get; init; } = 1.0;
         public int SegmentIndex { get; init; }
 
-        public PoseAtSConstraint(int segmentIndex,double s, double[]? targetP = null, double[]? targetT = null, ConstraintType type = ConstraintType.Soft, double wp = 1.0, double wt = 1.0)
+        public PoseAtSConstraint(int segmentIndex, double s, double[]? targetP = null, double[]? targetT = null, ConstraintType type = ConstraintType.Soft, double wp = 1.0, double wt = 1.0)
         {
             SegmentIndex = segmentIndex;
-            this.s = s; 
+            this.s = s;
             TargetP = targetP == null ? null : (double[])targetP.Clone();
             TargetT = targetT == null ? null : (double[])targetT.Clone();
-            Type = type; 
-            wP = wp; 
+            Type = type;
+            wP = wp;
             wT = wt;
         }
 
@@ -149,11 +158,11 @@ namespace ArcFrame.Core.Constraints
         public PlaneConstraint(int segmentIndex, double[] n, double d, bool oneSided = false, double s0 = 0, double s1 = double.NaN, int M = 9, ConstraintType type = ConstraintType.Soft, double weight = 1.0)
         {
             this.n = Helpers.Normalize(n);
-            this.d = d; OneSided = oneSided; 
-            this.s0 = s0; 
-            this.s1 = s1; 
+            this.d = d; OneSided = oneSided;
+            this.s0 = s0;
+            this.s1 = s1;
             this.M = System.Math.Max(2, M);
-            Type = type; 
+            Type = type;
             Weight = weight;
             SegmentIndex = segmentIndex;
         }
@@ -193,10 +202,10 @@ namespace ArcFrame.Core.Constraints
 
         public CurvatureBoundConstraint(int segmentIndex, double kMax, double s0 = 0, double s1 = double.NaN, int M = 9, double weight = 1.0)
         {
-            this.kMax = kMax; 
-            this.s0 = s0; 
-            this.s1 = s1; 
-            this.M = System.Math.Max(2, M); 
+            this.kMax = kMax;
+            this.s0 = s0;
+            this.s1 = s1;
+            this.M = System.Math.Max(2, M);
             this.Weight = weight;
             SegmentIndex = segmentIndex;
         }
@@ -279,4 +288,24 @@ namespace ArcFrame.Core.Constraints
             return new[] { r };
         }
     }
+
+    /// <summary>
+    /// tiny soft steering penalty (per segment): prefer small |dk|
+    /// </summary>
+    public sealed class LocalDkPenalty : ICurveConstraint
+    {
+        public ConstraintType Type => ConstraintType.Soft;
+        public double Weight { get; }
+        public int SegmentIndex { get; }
+        public LocalDkPenalty(int segIdx, double weight) { SegmentIndex = segIdx; Weight = weight; }
+        public double[] Residual(CurveSpec spec)
+        {
+            var plc = spec.Kappa as IParamCurvatureLaw;
+            if (plc == null) return new[] { 0.0 };
+            var p = plc.GetParams(); // planar adapter packs [k0, dk]
+            double dk = (p.Length >= 2) ? p[1] : 0.0;
+            return new[] { Weight * dk };
+        }
+    }
+
 }

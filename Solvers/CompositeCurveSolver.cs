@@ -23,6 +23,7 @@ namespace ArcFrame.Solvers
 
         public CurveSpec[] Solve(CompositeCurveProblem problem, bool optimizeP0 = true, bool optimizeLength = true, bool optimizeR0 = true)
         {
+            //Console.WriteLine("CompositeCurveProblem.Solve()");
             var pack = new Pack(problem.Seeds, optimizeP0, optimizeLength, optimizeR0);
             var theta = pack.Pack2(problem.Seeds);
 
@@ -32,32 +33,53 @@ namespace ArcFrame.Solvers
 
             for (int it = 0; it < MaxIter; it++)
             {
+                //Console.WriteLine($"Solve ({it}, {MaxIter})");
                 var specs = pack.Unpack(theta);
+                //Console.WriteLine("Unpack");
                 var (r, J) = BuildResidualsAndJacobian(specs, theta, problem.Constraints, pack);
-
-                double cost = Dot(r, r);
+                //Console.WriteLine("BuildResidualsAndJacobian");
+                double cost = Helpers.Dot(r, r);
                 if (cost < bestCost) { bestCost = cost; bestTheta = (double[])theta.Clone(); }
 
                 var JT = Transpose(J);
                 var JTJ = Helpers.Multiply(JT, J);
                 AddLevenbergDamping(JTJ, lambda);
+                //Console.WriteLine("AddLevenbergDamping");
                 var g = Helpers.Multiply(JT, r);
+                //Console.WriteLine("Multiply");
                 for (int i = 0; i < g.Length; i++) g[i] = -g[i];
+                //Console.WriteLine("Invert g");
 
-                if (!Helpers.TryInvert(JTJ, out var JTJinv)) break;
+                if (!Helpers.TryInvert(JTJ, out var JTJinv))
+                {
+                    //Console.WriteLine($"JTJ uninvertible, terminating");
+                    //Helpers.PrintMat(JTJ);
+                    break;
+                }
                 var delta = Helpers.Multiply(JTJinv!, g);
 
-                if (Helpers.Len(delta) <= RelTol * (RelTol + Helpers.Len(theta))) break;
+                if (Helpers.Len(delta) <= RelTol * (RelTol + Helpers.Len(theta)))
+                {
+                    //Console.WriteLine($"{Helpers.Len(delta)} <= {RelTol} * ({RelTol} + {Helpers.Len(theta)}");
+                    break;
+                }
 
                 var thetaNew = Helpers.Add(theta, delta);
                 var specsNew = pack.Unpack(thetaNew);
-                var rNew = BuildResidualOnly(specsNew, problem.Constraints);
-                double costNew = Dot(rNew, rNew);
+                //Console.WriteLine("Unpack thetaNew");
+                var rNew = BuildResidualOnly(specsNew, problem.Constraints); // <-- error is here
+                //Console.WriteLine("post BuildResidualOnly");
+                double costNew = Helpers.Dot(rNew, rNew);
 
-                if (costNew < cost) { theta = thetaNew; lambda *= 0.5; }
+                double oldLambda = lambda;
+                if (costNew < cost) { theta = thetaNew; lambda *= 0.5; bestTheta = (double[])thetaNew.Clone(); }
                 else { lambda *= 4.0; }
+                //Console.WriteLine($"Update lambda {oldLambda}=>{lambda}\n");
             }
 
+            //Console.Write($"Unpacking best theta: ");
+            //Helpers.PrintVector(bestTheta);
+            //Console.WriteLine();
             return pack.Unpack(bestTheta);
         }
 
@@ -82,14 +104,21 @@ namespace ArcFrame.Solvers
         private double[] BuildResidualOnly(IReadOnlyList<CurveSpec> specs, List<ICompositeConstraint> constraints)
         {
             var all = new List<double>();
-            foreach (var c in constraints)
+            foreach (ICompositeConstraint c in constraints)
             {
+                //Console.WriteLine($"Building Residual for: ");
+                //c.ShowInfo();
                 var res = c.Residual(specs);
+                //Console.WriteLine("Build residual only residual");
                 double w = (c.Type == ConstraintType.Hard ? HardWeight : 1.0);
                 if (c.Weight != 1.0) w *= c.Weight;
                 if (w != 1.0) for (int i = 0; i < res.Length; i++) res[i] *= w;
+                //Console.Write("residual: ");
+                //Helpers.PrintVector(res);
+                //Console.WriteLine();
                 all.AddRange(res);
             }
+            //Console.WriteLine("Returning residual...");
             return all.ToArray();
         }
 
@@ -107,11 +136,6 @@ namespace ArcFrame.Solvers
         {
             int n = H.GetLength(0);
             for (int i = 0; i < n; i++) H[i, i] += lambda * H[i, i] + 1e-12;
-        }
-
-        private static double Dot(double[] a, double[] b)
-        {
-            double s = 0; for (int i = 0; i < a.Length; i++) s += a[i] * b[i]; return s;
         }
 
         // ---------------- parameter pack across all segments ----------------
@@ -180,14 +204,22 @@ namespace ArcFrame.Solvers
             public CurveSpec[] Unpack(double[] theta)
             {
                 var specs = new CurveSpec[_numSeg];
-                int k = 0;
+                int k = 0; //keeps track of the indices of each parameter type
+                int oldK = k;
                 for (int s = 0; s < _numSeg; s++)
                 {
                     var seed = _seed[s];
 
+                    oldK = k;
                     double[] P0 = _optP0 ? Slice(theta, ref k, _N) : (double[])seed.P0.Clone();
+                    //Console.WriteLine($"Unpack P0 | k ({oldK}=>{k}) | ({s} : {_numSeg-1})");
+                    //Console.Write("P0 =");
+                    //Helpers.PrintVector(P0);
+                    oldK = k;
                     double L = _optL ? System.Math.Exp(theta[k++]) : seed.Length;
+                    //Console.WriteLine($"Unpack L | k ({oldK}=>{k}) | ({s} : {_numSeg-1})");
 
+                    oldK = k;
                     double[,] R0 = (double[,])seed.R0.Clone();
                     if (_optR0)
                     {
@@ -196,18 +228,38 @@ namespace ArcFrame.Solvers
                         var dR = SOParam.BuildRotation(_N, w);
                         R0 = Helpers.Multiply(dR, R0);
                     }
-
+                    //Console.WriteLine($"Unpack R0 | k ({oldK}=>{k}) | ({s} : {_numSeg-1})");
+                    oldK = k;
                     ICurvatureLaw law;
                     if (_laws[s] != null)
                     {
+                        //Console.Write("Is IParamCurvatureLaw => ");
                         int q = _laws[s]!.GetParams().Length;
                         var p = Slice(theta, ref k, q);
                         law = _laws[s]!.CloneWithParams(p);
                     }
                     else law = seed.Kappa;
+                    //Console.WriteLine($"Unpack kappa | k ({oldK}=>{k}) | ({s} : {_numSeg-1})");
 
                     specs[s] = new CurveSpec(_N, L, P0, R0, law, seed.Frame);
+                    string p0 = "";
+                    string r0 = "[";
+                    for (int i = 0; i < P0.Length; i++) p0 += P0[i].ToString();
+                    for (int i = 0; i < R0.GetLength(0); i++)
+                    {
+                        r0 += "[";
+                        for (int j = 0; j < R0.GetLength(1); j++)
+                        {
+                            r0 += R0[i, j].ToString();
+                            r0 += j == R0.GetLength(1) ? "" : ", ";
+                        }
+                        r0 += "], ";
+                    }
+                    r0 += "]";
+                    //Console.WriteLine($"Write spec number {s} | _N: {_N} | L: {L} | P0: [{p0}] | R0: {r0} | law: {law.ToString()} | frame: {seed.Frame.ToString()} | ({s} : {_numSeg-1})");
+                    //Console.WriteLine();
                 }
+                //Console.WriteLine($"Returning specs (count: {specs.Length})");
                 return specs;
             }
 

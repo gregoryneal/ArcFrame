@@ -25,7 +25,7 @@ namespace ArcFrame.Examples
             //Pf = R*P0 + T
             xfUsed1.PrintR(); //print Rotation matrix to console 
             xfUsed1.PrintT(); //print Translation vector to console.
-            xfUsed2.PrintR(); 
+            xfUsed2.PrintR();
             xfUsed2.PrintT();
 
             //You can rebuild the same curve with the primitives like so

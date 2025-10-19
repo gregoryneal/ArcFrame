@@ -10,7 +10,7 @@ namespace ArcFrame.Examples
     /// </summary>
     public class IntrinsicCurve_Bishop
     {
-        public static void Main() 
+        public static void Main()
         {
             // 3d curve
             int dimension = 3;
@@ -30,9 +30,9 @@ namespace ArcFrame.Examples
             double[][] positions = samples.Select(s => s.P).ToArray();
             double[][,] travelingONFrame = samples.Select(s => s.R).ToArray(); //orthonormal basis vectors, add them to positions at matching indices to view the frame
             double[][] curvatures = samples.Select(s => s.k).ToArray();
-            int n1 = 0;     
+            int n1 = 0;
             int n2 = 50;
-            int n3 = 100;   
+            int n3 = 100;
             //these are ON frames along the curve, add each column to the current position to generate the frame along the curve
             double[,] frame1 = travelingONFrame[n1];
             double[,] frame2 = travelingONFrame[n2];

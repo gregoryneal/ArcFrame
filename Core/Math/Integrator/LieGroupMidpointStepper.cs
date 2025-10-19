@@ -31,7 +31,7 @@ namespace ArcFrame.Core.Math
             double[,] Ehalf = MatrixExp.ExpSkew(A, 0.5 * h);
             double[,] Efull = MatrixExp.ExpSkew(A, h);
 
-            // T_mid = R * Ehalf * e1  (e1 = [1,0,0,...]^T)
+            // T_mid = R * Ehalf * e1 
             var Tmid = new double[N];
             for (int i = 0; i < N; i++)
             {

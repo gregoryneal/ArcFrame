@@ -18,8 +18,8 @@
             int n = xs.Length;
             x = (double[])xs.Clone();
             a = (double[])ys.Clone();
-            b = new double[n - 1]; 
-            c = new double[n]; 
+            b = new double[n - 1];
+            c = new double[n];
             d = new double[n - 1];
 
             // Natural cubic via tridiagonal solve for c (second derivs)            
@@ -37,10 +37,10 @@
                 alpha[i] = 3 * ((a[i + 1] - a[i]) / h[i] - (a[i] - a[i - 1]) / h[i - 1]);
             }
 
-            var l = new double[n]; 
-            var mu = new double[n]; 
+            var l = new double[n];
+            var mu = new double[n];
             var z = new double[n];
-            l[0] = 1; 
+            l[0] = 1;
             mu[0] = z[0] = 0;
             for (int i = 1; i < n - 1; i++)
             {
@@ -56,16 +56,16 @@
                 d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
             }
         }
-        int Find(double s) 
-        { 
-            int i = Array.BinarySearch(x, s); 
-            return i >= 0 ? System.Math.Max(0, i - 1) : System.Math.Max(0, ~i - 1); 
+        int Find(double s)
+        {
+            int i = Array.BinarySearch(x, s);
+            return i >= 0 ? System.Math.Max(0, i - 1) : System.Math.Max(0, ~i - 1);
         }
-        public double Eval(double s) 
-        { 
-            int i = Find(s); 
-            double t = s - x[i]; 
-            return a[i] + b[i] * t + c[i] * t * t + d[i] * t * t * t; 
+        public double Eval(double s)
+        {
+            int i = Find(s);
+            double t = s - x[i];
+            return a[i] + b[i] * t + c[i] * t * t + d[i] * t * t * t;
         }
 
         public void EvalJet(double s, int order, out double v0, out double v1, out double v2, out double v3)

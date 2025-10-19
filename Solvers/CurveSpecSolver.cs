@@ -1,6 +1,6 @@
-﻿using ArcFrame.Core.Math;
+﻿using ArcFrame.Core.Constraints;
+using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
-using ArcFrame.Core.Constraints;
 
 namespace ArcFrame.Solvers
 {
@@ -10,10 +10,11 @@ namespace ArcFrame.Solvers
     /// </summary>
     public sealed class CurveSpecSolver
     {
-        public double HardWeight { get; set; } = 1e6;
-        public double EpsFD { get; set; } = 1e-6;
+        public double HardWeight { get; set; } = 1E6;
+        public double EpsFD { get; set; } = 1E-6;
         public int MaxIter { get; set; } = 60;
-        public double RelTol { get; set; } = 1e-6;
+        public double RelTol { get; set; } = 1E-6;
+        public double SolveTol { get; set; } = 1E-8;
 
         public CurveSpec Solve(CurveSpec seed, IEnumerable<ICurveConstraint> constraints, bool optimizeP0 = true, bool optimizeLength = true, bool optimizeR0 = true)
         {
@@ -24,44 +25,71 @@ namespace ArcFrame.Solvers
             double bestCost = double.PositiveInfinity;
             var bestTheta = (double[])theta.Clone();
 
-            for (int it = 0; it < MaxIter; it++)
+            // Maybe remove the solve tolerance and just run all the iterations.. do some tests.
+            if (SolveTol <= 0) SolveTol = 1E-12;
+
+            for (int it = 0; it < MaxIter && bestCost > SolveTol; it++)
             {
+                Console.WriteLine($"Solve iter: {it}/{MaxIter}");
                 var spec = pack.Unpack(theta);
                 var (r, J) = BuildResidualsAndJacobian(spec, theta, constraints, pack);
+                double cost = Helpers.Dot(r, r);
+                if (cost < bestCost)
+                {
+                    bestCost = cost;
+                    bestTheta = (double[])theta.Clone();
+                }
+                Console.WriteLine("Solve 3 \n");
 
-                double cost = Dot(r, r);
-                if (cost < bestCost) { bestCost = cost; bestTheta = (double[])theta.Clone(); }
-
-                // (J^T J + λ diag) Δ = -J^T r
+                // (J^T J + λ diag(J^T J)) Δ = -J^T r
                 var JT = Transpose(J);
                 var JTJ = Helpers.Multiply(JT, J);
                 AddLevenbergDamping(JTJ, lambda);
-                var g = Helpers.Multiply(JT, r);
-                for (int i = 0; i < g.Length; i++) g[i] = -g[i];
+                var g = Helpers.Multiply(Helpers.Multiply(JT, r), -1);
+                //for (int i = 0; i < g.Length; i++) g[i] = -g[i];
 
                 if (!Helpers.TryInvert(JTJ, out var JTJinv)) break;
+                Console.WriteLine("Solve 4 \n");
                 var delta = Helpers.Multiply(JTJinv!, g);
 
                 if (Helpers.Len(delta) <= RelTol * (RelTol + Helpers.Len(theta))) break;
 
                 var thetaNew = Helpers.Add(theta, delta);
                 var specNew = pack.Unpack(thetaNew);
+                Console.WriteLine("Solve 5 \n");
                 var rNew = BuildResidualOnly(specNew, constraints);
-                double costNew = Dot(rNew, rNew);
+                Console.WriteLine("Solve 6 \n");
+                double costNew = Helpers.Dot(rNew, rNew);
 
-                if (costNew < cost) { theta = thetaNew; lambda *= 0.5; }
-                else { lambda *= 4.0; }
+                // adjust damping factor down as we approach the solution
+                // this moves to Gauss-Newton method
+                if (costNew < cost)
+                {
+                    theta = thetaNew;
+                    lambda *= 0.5;
+
+                    Console.WriteLine("Solve 7a \n");
+                }
+                // increase damping factor, this moves towards gradient descent
+                else
+                {
+                    lambda *= 4.0;
+
+                    Console.WriteLine("Solve 7b \n");
+                }
+                Console.WriteLine("Solve 8 \n");
             }
+            Console.WriteLine("Solve 9 \n");
 
             return pack.Unpack(bestTheta);
         }
 
-        private (double[] r, double[,] J) BuildResidualsAndJacobian(CurveSpec spec, double[] theta,
-                                                                    IEnumerable<ICurveConstraint> constraints,
-                                                                    ParamPack pack)
+        private (double[] r, double[,] J) BuildResidualsAndJacobian(CurveSpec spec, double[] theta, IEnumerable<ICurveConstraint> constraints, ParamPack pack)
         {
+            Console.WriteLine("BuildResidualsAndJacobian 1 \n");
             var r = BuildResidualOnly(spec, constraints);
-            int m = r.Length, p = theta.Length;
+            int m = r.Length;
+            int p = theta.Length;
             var J = new double[m, p];
 
             for (int j = 0; j < p; j++)
@@ -78,6 +106,7 @@ namespace ArcFrame.Solvers
 
         private double[] BuildResidualOnly(CurveSpec spec, IEnumerable<ICurveConstraint> constraints)
         {
+            Console.WriteLine("BuildResidualsOnly 1 \n");
             var all = new List<double>();
             foreach (var c in constraints)
             {
@@ -105,11 +134,6 @@ namespace ArcFrame.Solvers
         {
             int n = H.GetLength(0);
             for (int i = 0; i < n; i++) H[i, i] += lambda * H[i, i] + 1e-12;
-        }
-
-        private static double Dot(double[] a, double[] b)
-        {
-            double s = 0; for (int i = 0; i < a.Length; i++) s += a[i] * b[i]; return s;
         }
 
         private sealed class ParamPack

@@ -26,11 +26,11 @@ namespace ArcFrame.Core.Geometry.Splines
                 double ti = (double)i / samples;
                 t[i] = ti;
                 var pi = pos(ti);
-                if (i > 0) 
-                { 
+                if (i > 0)
+                {
                     accum += Helpers.Len(Helpers.Subtract(prev, pi)); //distance between prev and pi 
                 }
-                s[i] = accum; 
+                s[i] = accum;
                 prev = pi;
             }
             // normalize to arc length (optionally refine with Simpson/RK)

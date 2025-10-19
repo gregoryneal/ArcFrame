@@ -35,6 +35,7 @@ namespace ArcFrame.Core.Geometry
             while (s0 < s)
             {
                 double h = _opt.SuggestStep(_spec.Kappa.Eval, s0, s);
+                Console.WriteLine($"Suggested step size: {h} ({s0},{s})");
                 if (h <= 0) break;
 
                 _stepper.Step(ref P, ref R, _spec.Kappa.Eval, s0, h, _spec.Frame);

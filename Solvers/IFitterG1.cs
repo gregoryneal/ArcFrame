@@ -1,6 +1,4 @@
 ﻿using ArcFrame.Core.Params;
-using ArcFrame.Core.Results;
-using ArcFrame.Core.Geometry;
 
 namespace ArcFrame.Solvers
 {

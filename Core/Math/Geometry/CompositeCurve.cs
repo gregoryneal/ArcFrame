@@ -58,9 +58,12 @@ namespace ArcFrame.Core.Geometry
         /// <returns></returns>
         public Sample Evaluate(double s)
         {
+            //Console.WriteLine("Eval composite curve");
             EnsurePrefix();
+            //Console.WriteLine("Ensure prefix composite curve");
             if (_segs.Count() == 0)
             {
+                //Console.WriteLine("Seg count is 0");
                 double[,] R = new double[1, 1];
                 return new Sample(new double[System.Math.Max(1, Dimension)], R, 0, new double[System.Math.Max(0, Dimension - 1)]);
             }
@@ -69,14 +72,22 @@ namespace ArcFrame.Core.Geometry
 
             int low = 0;
             int high = _segs.Count;
-            int mid;
+            int mid = 0;
+            int u = 0;
             //binary search for segment
-            while (low + 1 < high)
+            while (low + 1 < high && ++u < _segs.Count)
             {
                 mid = (low + high) >> 1;
                 if (s >= _prefix[mid]) low = mid;
                 else high = mid;
             }
+            //Console.WriteLine("Binary search composite curve");
+
+            /*if (u >= _segs.Count)
+            {
+                Console.WriteLine($"Binary search for composite segment failed! SegmentCount: {_segs.Count} | HighIndex: {high} | MidIndex: {mid} | LowIndex: {low} | s: {s} | Prefix: ");
+                Helpers.PrintVector(_prefix);
+            }*/
 
             double localS = s - _prefix[low];
             Sample sp = _segs[low].Evaluate(localS);

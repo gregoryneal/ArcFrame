@@ -1,6 +1,5 @@
 ﻿using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
-using ArcFrame.Solvers.BertolazziFrego;
 
 namespace ArcFrame.Solvers.BertolazziFrego
 {
@@ -114,6 +113,6 @@ namespace ArcFrame.Solvers.BertolazziFrego
             while (angle > Math.PI) angle -= 2 * Math.PI;
             while (angle < -Math.PI) angle += 2 * Math.PI;
             return angle;
-        }       
+        }
     }
 }

@@ -169,7 +169,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
                 }
             }
 
-            return [ X, Y ];
+            return [X, Y];
         }
 
         /// <summary>
@@ -232,7 +232,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
                 }
             }
 
-            return [ X, Y ];
+            return [X, Y];
         }
 
         /// <summary>
@@ -297,7 +297,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
 
             }
 
-            return [ X, Y ];
+            return [X, Y];
         }
 
         private static double RLommel(double mu, double v, double b)
@@ -546,7 +546,8 @@ namespace ArcFrame.Solvers.BertolazziFrego
             if (jet.Length > 1 && jet[1].Length > 0)
             {
                 sharpness = jet[1][0];
-            } else
+            }
+            else
             {
                 sharpness = s != 0 ? (l.Eval(s)[0] - k0[0]) / s : 0;
             }
@@ -558,14 +559,14 @@ namespace ArcFrame.Solvers.BertolazziFrego
             double ct1 = Math.Cos(t1);
             double st1 = Math.Sin(t1);
             double[,] R;
-            switch(p.Frame)
+            switch (p.Frame)
             {
                 case FrameModel.Frenet:
                     R = ONFrame.R0_FromTN([ct1, st1], [-st1, ct1]);
                     break;
                 case FrameModel.Bishop:
                     //Rotate the initial frame by t1 - t0 in the XY plane
-                    R = Helpers.Multiply(RigidTransform.Rotation2D(t1-t0, 0, 0).R, p.R0);
+                    R = Helpers.Multiply(RigidTransform.Rotation2D(t1 - t0, 0, 0).R, p.R0);
                     break;
                 default:
                     R = ONFrame.R0_FromTN([ct1, st1], [-st1, ct1]);

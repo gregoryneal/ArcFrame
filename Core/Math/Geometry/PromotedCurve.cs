@@ -44,8 +44,8 @@ namespace ArcFrame.Core.Geometry
             for (int i = _map.Length; i < _N; i++)
             {
                 R[i, i] = 1;
-            }   
-            
+            }
+
             var K = new double[System.Math.Max(0, _N - 1)];
             // carry kappa_1; higher generalized curvatures stay 0 (planar inner stays planar)
             if (q.k != null && q.k.Length > 0 && K.Length > 0) K[0] = q.k[0];

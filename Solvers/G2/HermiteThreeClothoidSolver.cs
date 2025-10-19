@@ -2,6 +2,7 @@
 using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
+using ArcFrame.Solvers.BertolazziFrego;
 
 namespace ArcFrame.Solvers.G2
 {
@@ -70,14 +71,21 @@ namespace ArcFrame.Solvers.G2
                 MaxIter = maxIter,
                 RelTol = 1e-8
             };
+            //Console.WriteLine("HermiteThreeClothoidSolver before solve\n");
             var specs = solver.Solve(prob, optimizeP0: true, optimizeLength: true, optimizeR0: true);
+            //Console.WriteLine("HermiteThreeClothoidSolver solved\n");
 
             // --- 3) Rebuild a composite curve for convenience ----------------
-            // TODO: Change this to add Clothoids with BF evaluator for speed.
             var comp = new CompositeCurve();
+            var evaluator = new BFEvaluator();
+            comp.Add(new Clothoid(specs[0], evaluator))
+                .AddG1(new Clothoid(specs[1], evaluator), out _)
+                .AddG1(new Clothoid(specs[2], evaluator), out _);
+            /*
             comp.AddG1(new IntrinsicCurve(specs[0]), out _);
             comp.AddG1(new IntrinsicCurve(specs[1]), out _);
             comp.AddG1(new IntrinsicCurve(specs[2]), out _);
+            */
 
             return new Result(specs, comp, Converged: true, Iterations: maxIter);
         }
@@ -88,8 +96,8 @@ namespace ArcFrame.Solvers.G2
             double[] P1, double theta1, double k1)
         {
             int N = 2;
-            var R0 = FrameFromTheta(theta0);
-            var R2 = FrameFromTheta(theta1);
+            var R0 = RigidTransform.Rotation2D(theta0, 0, 0).R;// FrameFromTheta(theta0);
+            var R2 = RigidTransform.Rotation2D(theta1, 0, 0).R;// FrameFromTheta(theta1);
             var D = Helpers.Subtract(P1, P0);
             double Ltot = Helpers.Len(D);
             if (Ltot < 1e-9) Ltot = 1.0;
@@ -108,9 +116,9 @@ namespace ArcFrame.Solvers.G2
             double dk2 = (k1 - kJoin2) / Math.Max(1e-6, L2);
 
             // Build parameterizable curvature laws
-            var law0 = new LinearCurvatureLawParamAdapter(new LinearCurvatureLaw(new[] { k0 }, new[] { dk0 }));
-            var law1 = new LinearCurvatureLawParamAdapter(new LinearCurvatureLaw(new[] { kJoin1 }, new[] { dk1 }));
-            var law2 = new LinearCurvatureLawParamAdapter(new LinearCurvatureLaw(new[] { kJoin2 }, new[] { dk2 }));
+            var law0 = new LinearCurvatureLaw(new[] { k0 }, new[] { dk0 });
+            var law1 = new LinearCurvatureLaw(new[] { kJoin1 }, new[] { dk1 });
+            var law2 = new LinearCurvatureLaw(new[] { kJoin2 }, new[] { dk2 });
 
             // Place seed segment 0 exactly at P0, frame θ0
             var spec0 = new CurveSpec(N, L0, (double[])P0.Clone(), R0, law0, FrameModel.Bishop);
@@ -139,39 +147,6 @@ namespace ArcFrame.Solvers.G2
         {
             double theta = Math.Atan2(T[1], T[0]);
             return FrameFromTheta(theta);
-        }
-
-        // --------- simple regularizers to pick a "nice" solution ----------
-        private sealed class SlopeRegularizer : ICurveConstraint
-        {
-            public ConstraintType Type { get; } = ConstraintType.Soft;
-            public double Weight { get; }
-            public int SegmentIndex { get; }
-
-            public SlopeRegularizer(int segIdx, double weight) { SegmentIndex = segIdx; Weight = weight; }
-
-            public double[] Residual(CurveSpec spec)
-            {
-                // Penalize dk magnitude: weight * dk
-                var p = (spec.Kappa as IParamCurvatureLaw)?.GetParams();
-                // For LinearCurvatureLawParamAdapter: p = [k0, dk]
-                double dk = (p != null && p.Length >= 2) ? p[1] : 0.0;
-                return new[] { Weight * dk };
-            }
-        }
-
-        private sealed class LengthRegularizer : ICompositeConstraint
-        {
-            public ConstraintType Type { get; } = ConstraintType.Soft;
-            public double Weight { get; }
-            private readonly int _segIdx;
-
-            public LengthRegularizer(int segIdx, double weight) { _segIdx = segIdx; Weight = weight; }
-
-            public double[] Residual(IReadOnlyList<CurveSpec> specs)
-            {
-                return new[] { Weight * specs[_segIdx].Length };
-            }
         }
     }
 }

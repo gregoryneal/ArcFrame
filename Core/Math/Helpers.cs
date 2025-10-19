@@ -66,14 +66,14 @@
         /// <param name="b"></param>
         /// <param name="u"></param>
         /// <returns></returns>
-        public static double[] Lerp(double[] a, double[] b, double u) 
-        { 
+        public static double[] Lerp(double[] a, double[] b, double u)
+        {
             var r = new double[a.Length];
-            for (int i = 0; i < r.Length; i++) 
-            { 
-                r[i] = a[i] + u * (b[i] - a[i]); 
-            } 
-            return r; 
+            for (int i = 0; i < r.Length; i++)
+            {
+                r[i] = a[i] + u * (b[i] - a[i]);
+            }
+            return r;
         }
 
         /// <summary>
@@ -94,14 +94,14 @@
         public static double OneNorm(double[,] M)
         {
             int n = M.GetLength(0);
-            int m = M.GetLength(1); 
+            int m = M.GetLength(1);
             double mx = 0;
-            for (int j = 0; j < m; j++) 
-            { 
-                double col = 0; 
-                for (int i = 0; i < n; i++) 
-                    col += System.Math.Abs(M[i, j]); 
-                mx = System.Math.Max(mx, col); 
+            for (int j = 0; j < m; j++)
+            {
+                double col = 0;
+                for (int i = 0; i < n; i++)
+                    col += System.Math.Abs(M[i, j]);
+                mx = System.Math.Max(mx, col);
             }
             return mx;
         }
@@ -266,17 +266,17 @@
             //we will end up with and n x m matrix.
             int n = a.GetLength(0);
             int l = b.GetLength(0);
-            int m = b.GetLength(1); 
+            int m = b.GetLength(1);
             int k = a.GetLength(1);
             if (k != l) throw new ArgumentException("Dimension mismatch");
             var Z = new double[n, m];
-            for (int i = 0; i < n; i++) 
+            for (int i = 0; i < n; i++)
             {
                 for (int j = 0; j < m; j++)
                 {
                     double s = 0;
-                    for (int t = 0; t < k; t++) 
-                    { 
+                    for (int t = 0; t < k; t++)
+                    {
                         s += a[i, t] * b[t, j];
                     }
                     Z[i, j] = s;
@@ -479,15 +479,15 @@
         /// </summary>
         public static bool TryInvert(double[,] A, out double[,]? Ainv, double tol = 1e-14)
         {
-            try 
-            { 
-                Ainv = Invert(A, tol); 
-                return true; 
+            try
+            {
+                Ainv = Invert(A, tol);
+                return true;
             }
-            catch 
-            { 
-                Ainv = null; 
-                return false; 
+            catch
+            {
+                Ainv = null;
+                return false;
             }
         }
 

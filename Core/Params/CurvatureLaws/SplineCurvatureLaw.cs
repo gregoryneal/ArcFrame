@@ -14,6 +14,10 @@ namespace ArcFrame.Core.Params.CurvatureLaws
 
         public int MaxSupportedJetOrder => 3;
 
+        public bool IsLinear => false;
+
+        public bool IsConstant => false;
+
         /// <summary>
         /// 
         /// </summary>
@@ -28,7 +32,7 @@ namespace ArcFrame.Core.Params.CurvatureLaws
             if (m < 1 || n < 2) throw new ArgumentException();
             comps = new CubicSpline1D[m];
             for (int j = 0; j < m; j++) comps[j] = new CubicSpline1D(sKnots, kSamples[j]);
-            sMin = sKnots[0]; 
+            sMin = sKnots[0];
             sMax = sKnots[^1];
         }
         public double[] Eval(double s)

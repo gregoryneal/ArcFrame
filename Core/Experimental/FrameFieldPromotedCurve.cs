@@ -49,10 +49,10 @@ namespace ArcFrame.Core.Experimental
             for (int i = 0; i < _N; i++)
             {
                 double px = 0, tx = 0;
-                for (int j = 0; j < _d; j++) 
-                { 
-                    px += E[i, j] * q.P[j]; 
-                    tx += E[i, j] * q.T[j]; 
+                for (int j = 0; j < _d; j++)
+                {
+                    px += E[i, j] * q.P[j];
+                    tx += E[i, j] * q.T[j];
                 }
                 P[i] = px + p[i];
                 //T[i] = tx; // if you need exact unit-speed, renormalize T after reparam
@@ -60,7 +60,7 @@ namespace ArcFrame.Core.Experimental
 
             // Curvatures: preserve inner generalized curvatures; pad zeros
             var K = new double[System.Math.Max(0, _N - 1)];
-            if (q.k != null) 
+            if (q.k != null)
             {
                 for (int j = 0; j < System.Math.Min(q.k.Length, K.Length); j++)
                 {

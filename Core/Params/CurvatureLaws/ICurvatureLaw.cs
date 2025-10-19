@@ -18,5 +18,9 @@
         /// <param name="s">The arc length</param>
         /// <returns></returns>
         double[] Eval(double s);
+
+        public bool IsLinear { get; }
+        public bool IsConstant { get; }
+
     }
 }

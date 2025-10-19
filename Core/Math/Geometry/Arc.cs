@@ -1,4 +1,5 @@
 ﻿using ArcFrame.Core.Math;
+using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
 
 namespace ArcFrame.Core.Geometry
@@ -107,11 +108,29 @@ namespace ArcFrame.Core.Geometry
         /// <param name="startAngle"></param>
         /// <param name="deltaAngle"></param>
         /// <returns></returns>
-        public static Arc From2D_XZ(double cx, double cz, double radius, double startAngle, double deltaAngle)
+        public static Arc From3D_XZ(double cx, double cz, double radius, double startAngle, double deltaAngle)
         {
             double[] e1 = { 1, 0, 0 };
             double[] e2 = { 0, 0, 1 };
             double[] c = { cx, 0, cz };
+
+            return new Arc(c, e1, e2, radius, startAngle, deltaAngle);
+        }
+
+        /// <summary>
+        /// Build an arc from XZ plane-parameterized arc.
+        /// </summary>
+        /// <param name="cx"></param>
+        /// <param name="cz"></param>
+        /// <param name="radius"></param>
+        /// <param name="startAngle"></param>
+        /// <param name="deltaAngle"></param>
+        /// <returns></returns>
+        public static Arc From2D(double cx, double cy, double radius, double startAngle, double deltaAngle)
+        {
+            double[] e1 = { 1, 0 };
+            double[] e2 = { 0, 1 };
+            double[] c = { cx, cy };
 
             return new Arc(c, e1, e2, radius, startAngle, deltaAngle);
         }
@@ -133,6 +152,33 @@ namespace ArcFrame.Core.Geometry
             double[] e2 = Helpers.Normalize(Helpers.Cross3(normalizedPlaneNormal, e1));
 
             return new Arc(center, e1, e2, radius, startAngle, deltaAngle);
+        }
+
+        /// <summary>
+        /// Build an arc from a CurveSpec. The angle delta will always be positive.
+        /// </summary>
+        /// <param name="spec"></param>
+        /// <param name="arc"></param>
+        /// <returns></returns>
+        public static bool TryFromSpec(CurveSpec spec, out Arc? arc)
+        {
+            if (spec.N != 2)
+            {
+                arc = null;
+                return false;
+            }
+            double k = spec.Kappa.Eval(0)[0];
+            if (k != 0)
+            {
+                double[] t = spec.GetONAxis(0);
+                double[] n = spec.GetONAxis(1);
+                double startAngle = System.Math.Atan2(t[1], t[0]);
+                double deltaAngle = spec.Length * k;
+                arc = new Arc(spec.P0, t, n, 1 / k, startAngle, deltaAngle);
+                return true;
+            }
+            arc = null;
+            return false;
         }
 
         public double[] Position(double s) => Evaluate(s).P;
