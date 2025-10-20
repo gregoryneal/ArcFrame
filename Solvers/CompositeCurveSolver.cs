@@ -4,16 +4,30 @@ using ArcFrame.Core.Params;
 
 namespace ArcFrame.Solvers
 {
+    /// <summary>
+    /// Describe a constrained composite curve problem to be solved.
+    /// </summary>
     public sealed class CompositeCurveProblem
     {
+        /// <summary>
+        /// The seed specs, these will be altered to fit the constraints
+        /// </summary>
         public CurveSpec[] Seeds { get; }
         public List<ICompositeConstraint> Constraints { get; } = new();
         public CompositeCurveProblem(CurveSpec[] seeds) { Seeds = seeds; }
 
+        /// <summary>
+        /// Wrap a single curve constraint in a SegmentConstraintWrapper for ICompositeConstraint
+        /// </summary>
+        /// <param name="single"></param>
         public void Add(ICurveConstraint single) => Constraints.Add(new SegmentConstraintWrapper(single));
         public void Add(ICompositeConstraint joint) => Constraints.Add(joint);
     }
 
+    /// <summary>
+    /// Solve a CompositeCurveProblem using the 
+    /// Levenberg–Marquardt algorithm
+    /// </summary>
     public sealed class CompositeCurveSolver
     {
         public double HardWeight { get; set; } = 1e6;
@@ -21,6 +35,15 @@ namespace ArcFrame.Solvers
         public int MaxIter { get; set; } = 80;
         public double RelTol { get; set; } = 1e-6;
 
+        /// <summary>
+        /// TODO: Right now the algorithm is implemented incorrectly, it updates the cost
+        /// no matter what and allows divergence....
+        /// </summary>
+        /// <param name="problem"></param>
+        /// <param name="optimizeP0"></param>
+        /// <param name="optimizeLength"></param>
+        /// <param name="optimizeR0"></param>
+        /// <returns></returns>
         public CurveSpec[] Solve(CompositeCurveProblem problem, bool optimizeP0 = true, bool optimizeLength = true, bool optimizeR0 = true)
         {
             //Console.WriteLine("CompositeCurveProblem.Solve()");
