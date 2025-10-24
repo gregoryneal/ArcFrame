@@ -10,11 +10,15 @@ IArcLengthCurve with Evaluate(s) → (P, R, k) where P is position, R is an orth
 ### Intrinsic curves
 IntrinsicCurve builds curves from a CurveSpec that couples initial pose, frame model (Frenet or Bishop), and a curvature law.
 
+### Constraint Solver
+Uses the Levenberg-Marquardt algorithm to solve a CompositeCurveProblem given a set of constraints.
+
 ### Clothoids and curvature laws
 Linear curvature laws and generalized Fresnel integral evaluators support accurate clothoid construction and sampling.
 
 ### Lie-group frame stepping
 A midpoint integrator on SO(N) with adaptive step control for stable propagation of pose over arc length.
+TODO: implement RK4 frame stepping.
 
 ### Composition and transforms
 CompositeCurve concatenates segments with automatic G1 alignment. TransformedCurve, RigidTransform, and PromotedCurve embed and position curves across dimensions.
@@ -31,7 +35,3 @@ Track, road, and rail geometry design
 Game and simulation tooling that needs smooth, controllable splines
 
 CAD/CAM workflows that benefit from curvature-aware construction
-
-## Status
-
-The core is focused on correctness and numerics first. APIs are designed to be explicit and minimal, with clear separation between intrinsic definitions, integration, and composition. Contributions that add tests, additional curvature laws, or higher-level fitters are welcome.
