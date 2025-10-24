@@ -29,6 +29,9 @@
         public double s = s;
 
         private double[]? _T;
+        /// <summary>
+        /// Tangent vector
+        /// </summary>
         public double[] T
         {
             get

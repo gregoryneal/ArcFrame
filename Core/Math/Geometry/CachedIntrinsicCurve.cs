@@ -98,7 +98,12 @@ namespace ArcFrame.Core.Geometry
         static int UpperBound(List<double> a, double x)
         {
             int lo = 0, hi = a.Count;
-            while (lo < hi) { int mid = (lo + hi) >> 1; if (a[mid] <= x) lo = mid + 1; else hi = mid; }
+            while (lo < hi) 
+            { 
+                int mid = (lo + hi) >> 1;
+                if (a[mid] <= x) lo = mid + 1; 
+                else hi = mid; 
+            }
             return lo;
         }
 

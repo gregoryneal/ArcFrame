@@ -304,7 +304,7 @@
             return Multiply(b, a);
         }
 
-
+        public static double Norm(double[] v) => System.Math.Sqrt(Dot(v, v));
 
         //Gram-Schmidt style orthonormalization for building an N dimensional frame from
         //lower dimensional starting vectors. 
@@ -490,8 +490,20 @@
                 return false;
             }
         }
-
-        // ---------- helpers ----------
+        public static double[,] Transpose(double[,] matrix)
+        {
+            int rows = matrix.GetLength(0);
+            int cols = matrix.GetLength(1);
+            double[,] result = new double[cols, rows];
+            for (int i = 0; i < rows; i++)
+            {
+                for (int j = 0; j < cols; j++)
+                {
+                    result[j, i] = matrix[i, j];
+                }
+            }
+            return result;
+        }
 
         private static void SwapRows(double[,] M, int r1, int r2)
         {

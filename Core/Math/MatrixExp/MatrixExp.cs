@@ -41,17 +41,26 @@
             var A4 = Helpers.Multiply(A2, A2);
             var A6 = Helpers.Multiply(A2, A4);
 
-            // Higham-style coefficients for [6/6] (double)
-            // These give a very good (m=6) rational approximation for exp.
+            double[] b =
+            {
+                1.0,
+                0.5,
+                0.11363636363636364, // 5/44
+                0.01515151515151515, // 1/66
+                0.00126262626262626, // 1/792
+                6.31313131313131E-5, // 1/15840
+                1.50312650312650E-6, // 1/665280
+            };
+            /*
             double[] b = {
             1.0,
             0.5,
-            0.12,                     // 3!/ (6!)?  (pre-tuned Padé coeffs; keep as constants)
+            0.12,                     // 3!/ (6!)?
             0.018333333333333333,     // 11/600
             0.0019927536231884053,    // 151/75600
             0.00016059043836821612,   // 15619/97195500
             0.000009618129107628477   // 691/718502400
-        };
+            };*/
 
             // U = A * (b1*I + b3*A2 + b5*A4)
             var I = RigidTransform.Identity(N).R;
@@ -59,9 +68,7 @@
             var U = Helpers.Multiply(A, polyOdd);
 
             // V = b0*I + b2*A2 + b4*A4 + b6*A6
-            var V = Helpers.Add(Helpers.Multiply(I, b[0]),
-                     Helpers.Add(Helpers.Multiply(A2, b[2]),
-                     Helpers.Add(Helpers.Multiply(A4, b[4]), Helpers.Multiply(A6, b[6]))));
+            var V = Helpers.Add(Helpers.Multiply(I, b[0]), Helpers.Add(Helpers.Multiply(A2, b[2]), Helpers.Add(Helpers.Multiply(A4, b[4]), Helpers.Multiply(A6, b[6]))));
 
             // Solve (V - U) * X = (V + U)
             var W = Helpers.Subtract(V, U);
@@ -76,7 +83,7 @@
         // ---- Rodrigues (exact for so(3)) ----
         static double[,] Rodrigues3(double[,] A, double h)
         {
-            // A = [ω]_x. Extract ω from A.
+            // A = [w]_x. Extract w from A.
             double wx = A[2, 1], wy = A[0, 2], wz = A[1, 0];
             double theta = h * System.Math.Sqrt(wx * wx + wy * wy + wz * wz);
             var I = RigidTransform.Identity(3).R;

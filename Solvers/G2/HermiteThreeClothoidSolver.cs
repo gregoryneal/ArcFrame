@@ -72,7 +72,8 @@ namespace ArcFrame.Solvers.G2
                 RelTol = 1e-8
             };
             //Console.WriteLine("HermiteThreeClothoidSolver before solve\n");
-            var specs = solver.Solve(prob, optimizeP0: true, optimizeLength: true, optimizeR0: true);
+            var result = solver.Solve(prob, optimizeP0: true, optimizeLength: true, optimizeR0: true);
+            var specs = result.FinalSolution;
             //Console.WriteLine("HermiteThreeClothoidSolver solved\n");
 
             // --- 3) Rebuild a composite curve for convenience ----------------

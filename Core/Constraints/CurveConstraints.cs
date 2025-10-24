@@ -308,4 +308,26 @@ namespace ArcFrame.Core.Constraints
         }
     }
 
+    public sealed class PositiveLengthPenalty : ICompositeConstraint
+    {
+        public ConstraintType Type => ConstraintType.Hard;
+
+        public double Weight { get; } = 1.0;
+
+        public double[] Residual(IReadOnlyList<CurveSpec> specs)
+        {
+            double[] r = new double[specs.Count];
+            for (int i = 0; i < r.Length; i++)
+            {
+                if (specs[i].Length > 0) r[i] = 0;
+                else r[i] = Weight;
+            }
+            return r;
+        }
+
+        public void ShowInfo()
+        {
+            Console.WriteLine("PositiveLengthPenalty");
+        }
+    }
 }

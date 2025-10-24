@@ -163,7 +163,7 @@
             for (int i = 0; i < d; i++)
                 for (int j = i; j < d; j++)
                 {
-                    double dot = Dot(cols[i], cols[j]);
+                    double dot = Helpers.Dot(cols[i], cols[j]);
                     if ((i == j && System.Math.Abs(dot - 1.0) > 1e-6) ||
                         (i != j && System.Math.Abs(dot) > 1e-6))
                     {
@@ -181,10 +181,10 @@
                 // Project out components along existing columns
                 OrthoProjectOut(v, cols);
 
-                double nrm = Norm(v);
+                double nrm = Helpers.Norm(v);
                 if (nrm > tol)
                 {
-                    Scale(v, 1.0 / nrm);
+                    Helpers.Multiply(v, 1.0 / nrm);
                     cols.Add(v);
                 }
             }
@@ -197,10 +197,10 @@
                 var v = new double[N];
                 for (int i = 0; i < N; i++) v[i] = rng.NextDouble() - 0.5;
                 OrthoProjectOut(v, cols);
-                double nrm = Norm(v);
+                double nrm = Helpers.Norm(v);
                 if (nrm > tol)
                 {
-                    Scale(v, 1.0 / nrm);
+                    Helpers.Multiply(v, 1.0 / nrm);
                     cols.Add(v);
                 }
                 guard++;
@@ -255,7 +255,7 @@
         }
 
         //helpers
-        private static double[] GetCol(double[,] M, int j)
+        public static double[] GetCol(double[,] M, int j)
         {
             int N = M.GetLength(0);
             var c = new double[N];
@@ -266,17 +266,6 @@
         {
             for (int i = 0; i < M.GetLength(0); i++) M[i, j] = c[i];
         }
-        private static double Dot(double[] a, double[] b)
-        {
-            double s = 0.0;
-            for (int i = 0; i < a.Length; i++) s += a[i] * b[i];
-            return s;
-        }
-        private static double Norm(double[] v) => System.Math.Sqrt(Dot(v, v));
-        private static void Scale(double[] v, double s)
-        {
-            for (int i = 0; i < v.Length; i++) v[i] *= s;
-        }
         private static void Axpy(double[] y, double alpha, double[] x)
         {
             for (int i = 0; i < y.Length; i++) y[i] += alpha * x[i];
@@ -286,13 +275,13 @@
             // Modified Gram–Schmidt step: v := v - sum_j (q_j^T v) q_j
             for (int j = 0; j < basis.Count; j++)
             {
-                double coeff = Dot(basis[j], v);
+                double coeff = Helpers.Dot(basis[j], v);
                 if (System.Math.Abs(coeff) > 0) Axpy(v, -coeff, basis[j]);
             }
             // (Optional) one re-orthogonalization pass for stability
             for (int j = 0; j < basis.Count; j++)
             {
-                double coeff = Dot(basis[j], v);
+                double coeff = Helpers.Dot(basis[j], v);
                 if (System.Math.Abs(coeff) > 0) Axpy(v, -coeff, basis[j]);
             }
         }

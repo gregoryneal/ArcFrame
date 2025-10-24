@@ -1,6 +1,8 @@
 ﻿using ArcFrame.Core.Constraints;
 using ArcFrame.Core.Math;
+using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Params;
+using ArcFrame.Core.Results;
 
 namespace ArcFrame.Solvers
 {
@@ -24,6 +26,15 @@ namespace ArcFrame.Solvers
         public void Add(ICompositeConstraint joint) => Constraints.Add(joint);
     }
 
+    public sealed class CompositeCurveSolverResult
+    {
+        public required CurveSpec[] FinalSolution { get; set; }
+        public required bool Solved { get; set; }
+        public required string Message { get; set; }
+        public required int Iterations { get; set; }
+        public required double FinalCost { get; set; }
+    }
+
     /// <summary>
     /// Solve a CompositeCurveProblem using the 
     /// Levenberg–Marquardt algorithm
@@ -31,95 +42,181 @@ namespace ArcFrame.Solvers
     public sealed class CompositeCurveSolver
     {
         public double HardWeight { get; set; } = 1e6;
+        /// <summary>
+        /// Used for finite difference approximation
+        /// </summary>
         public double EpsFD { get; set; } = 1e-6;
-        public int MaxIter { get; set; } = 80;
+        public int MaxIter { get; set; } = 800;
+        /// <summary>
+        /// Solution is solved when the change in cost per step is lower than this value.
+        /// </summary>
         public double RelTol { get; set; } = 1e-6;
 
         /// <summary>
         /// TODO: Right now the algorithm is implemented incorrectly, it updates the cost
         /// no matter what and allows divergence....
+        /// 
+        /// LMA: Pn+1 = Pn - ((hessian(Residual) + lambda(I))^-1)gradient(Residual)
+        /// Where: Pn is the position vector at index n.
+        /// Hessian(Residual) is the matrix of second partial derivates of the residual vector.
+        /// Lambda is the weighting factor (chooses between Newton Raphson (small) and Gradient descent (large)).
+        /// I is the identity matrix of the same dimension as the hessian matrix.
+        /// Gradient(Residual) is the matrix of first order partial derivatives of the residual vector.
         /// </summary>
         /// <param name="problem"></param>
         /// <param name="optimizeP0"></param>
         /// <param name="optimizeLength"></param>
         /// <param name="optimizeR0"></param>
         /// <returns></returns>
-        public CurveSpec[] Solve(CompositeCurveProblem problem, bool optimizeP0 = true, bool optimizeLength = true, bool optimizeR0 = true)
+        public CompositeCurveSolverResult Solve(CompositeCurveProblem problem, bool optimizeP0 = true, bool optimizeLength = true, bool optimizeR0 = true)
         {
             //Console.WriteLine("CompositeCurveProblem.Solve()");
-            var pack = new Pack(problem.Seeds, optimizeP0, optimizeLength, optimizeR0);
-            var theta = pack.Pack2(problem.Seeds);
+            Pack pack = new Pack(problem.Seeds, optimizeP0, optimizeLength, optimizeR0);
+            double[] currentParameters = pack.Pack2(problem.Seeds);
+            double[] currentResiduals = BuildResidualOnly(problem.Seeds, problem.Constraints);
+            double currentCost = Helpers.Dot(currentResiduals, currentResiduals);
+            int _numParams = currentParameters.Length;
 
             double lambda = 1e-2;
-            double bestCost = double.PositiveInfinity;
-            var bestTheta = (double[])theta.Clone();
+            double lambdaFactor = 10;
 
-            for (int it = 0; it < MaxIter; it++)
+            CurveSpec[] specs = problem.Seeds;
+
+            for (int i = 0; i < MaxIter; i++)
             {
-                //Console.WriteLine($"Solve ({it}, {MaxIter})");
-                var specs = pack.Unpack(theta);
-                //Console.WriteLine("Unpack");
-                var (r, J) = BuildResidualsAndJacobian(specs, theta, problem.Constraints, pack);
-                //Console.WriteLine("BuildResidualsAndJacobian");
-                double cost = Helpers.Dot(r, r);
-                if (cost < bestCost) { bestCost = cost; bestTheta = (double[])theta.Clone(); }
+                specs = pack.Unpack(currentParameters);
+                //Console.WriteLine();
+                //Console.WriteLine($"==================== New Iteration: {i} ====================");
+                // Calculate current residuals jacobian and hessian approximation
+                (currentResiduals, double[,] Jacobian) = BuildResidualsAndJacobian(specs, currentParameters, problem.Constraints, pack);
+                //Helpers.PrintVector(currentResiduals);
+                //Helpers.PrintMat(Jacobian);
+                var JT = Helpers.Transpose(Jacobian);
+                var hessian = Helpers.Multiply(JT, Jacobian);
+                //Console.WriteLine($"Calculate current residuals jacobian and hessian approximation");
 
-                var JT = Transpose(J);
-                var JTJ = Helpers.Multiply(JT, J);
-                AddLevenbergDamping(JTJ, lambda);
-                //Console.WriteLine("AddLevenbergDamping");
-                var g = Helpers.Multiply(JT, r);
-                //Console.WriteLine("Multiply");
-                for (int i = 0; i < g.Length; i++) g[i] = -g[i];
-                //Console.WriteLine("Invert g");
+                // Calculate gradient
+                var grad = Helpers.Multiply(JT, currentResiduals);
+                //Console.WriteLine($"Calculate gradient");
 
-                if (!Helpers.TryInvert(JTJ, out var JTJinv))
+                // (hess + lambda(I)) * dP = -grad | Ax=B
+                var lambdaIdentity = Helpers.Multiply(lambda, RigidTransform.Identity(_numParams).R);
+                var aMatrix = Helpers.Add(hessian, lambdaIdentity);
+                var bMatrix = Helpers.Multiply(grad, -1);
+                //Console.WriteLine($"(hess + lambda(I)) * dP = -grad");
+
+                double[] dP;
+                try
                 {
-                    //Console.WriteLine($"JTJ uninvertible, terminating");
-                    //Helpers.PrintMat(JTJ);
-                    break;
+                    // Solve for dp
+                    var (LU, piv, pivSign) = LA.LUFactor(aMatrix);
+                    dP = LA.LUSolve(LU, piv, bMatrix);
                 }
-                var delta = Helpers.Multiply(JTJinv!, g);
-
-                if (Helpers.Len(delta) <= RelTol * (RelTol + Helpers.Len(theta)))
+                catch (Exception)
                 {
-                    //Console.WriteLine($"{Helpers.Len(delta)} <= {RelTol} * ({RelTol} + {Helpers.Len(theta)}");
-                    break;
+                    return new CompositeCurveSolverResult
+                    {
+                        FinalSolution = specs,
+                        Solved = false,
+                        Message = "Solution did not converge, matrix not factorizable.",
+                        FinalCost = currentCost,
+                        Iterations = i
+                    };
                 }
+                //Console.Write($"try solve for dP: ");
+                //Helpers.PrintVector(dP);
+                //Console.Write("Current parameters: ");
+                //Helpers.PrintVector(currentParameters);
+                //Console.WriteLine();
 
-                var thetaNew = Helpers.Add(theta, delta);
-                var specsNew = pack.Unpack(thetaNew);
-                //Console.WriteLine("Unpack thetaNew");
-                var rNew = BuildResidualOnly(specsNew, problem.Constraints); // <-- error is here
-                //Console.WriteLine("post BuildResidualOnly");
-                double costNew = Helpers.Dot(rNew, rNew);
+                // Calculate new parameters and new cost
+                double[] newParameters = Helpers.Add(currentParameters, dP);
+                //Console.Write("New parameters: ");
+                //Helpers.PrintVector(newParameters);
+                //Console.WriteLine();
+                specs = pack.Unpack(newParameters);
 
-                double oldLambda = lambda;
-                if (costNew < cost) { theta = thetaNew; lambda *= 0.5; bestTheta = (double[])thetaNew.Clone(); }
-                else { lambda *= 4.0; }
-                //Console.WriteLine($"Update lambda {oldLambda}=>{lambda}\n");
+                /*Console.WriteLine($"New Specs");
+                for (int j = 0; j < specs.Length; j++)
+                {
+                    specs[j].ShowInfo();
+                    Console.WriteLine();
+                }*/
+                double[] newResiduals = BuildResidualOnly(specs, problem.Constraints);
+                /*Console.Write("New residuals: ");
+                Helpers.PrintVector(newResiduals);
+                Console.WriteLine();*/
+                double newCost = Helpers.Dot(newResiduals, newResiduals);
+                //Console.WriteLine($"Calculate new parameters and new cost: {newCost}");
+
+                // Decide whether to keep the new cost or not
+                double costChange = currentCost - newCost;
+                if (costChange > 0)
+                {
+                    currentParameters = newParameters;
+                    //currentResiduals = newResiduals;
+                    currentCost = newCost;
+                    lambda /= lambdaFactor;
+
+                    if (costChange < RelTol)
+                    {
+                        return new CompositeCurveSolverResult
+                        {
+                            FinalCost = currentCost,
+                            FinalSolution = specs,
+                            Iterations = i,
+                            Message = "Solution converged, cost change below threshold",
+                            Solved = true
+                        };
+                    }
+                }
+                else
+                {
+                    lambda *= lambdaFactor;
+                }
+                //Console.WriteLine($"Decide whether to keep the new cost or not");
             }
-
             //Console.Write($"Unpacking best theta: ");
             //Helpers.PrintVector(bestTheta);
             //Console.WriteLine();
-            return pack.Unpack(bestTheta);
+            return new CompositeCurveSolverResult
+            {
+                FinalSolution = specs,
+                FinalCost = currentCost,
+                Iterations = MaxIter,
+                Solved = false,
+                Message = "Solution did not converge, max iterations reached"
+            };
         }
 
-        private (double[] r, double[,] J) BuildResidualsAndJacobian(IReadOnlyList<CurveSpec> specs, double[] theta,
+        private (double[] r, double[,] J) BuildResidualsAndJacobian(IReadOnlyList<CurveSpec> specs, double[] currenParams,
                                                                     List<ICompositeConstraint> constraints, Pack pack)
         {
+            // Residual at the current constraints
             var r = BuildResidualOnly(specs, constraints);
-            int m = r.Length, p = theta.Length;
+            int m = r.Length, p = currenParams.Length;
             var J = new double[m, p];
+            // For each parameter add +h and calculate the FD derivative at i,j
             for (int j = 0; j < p; j++)
             {
-                double h = EpsFD * (1.0 + System.Math.Abs(theta[j]));
-                var theta_h = (double[])theta.Clone();
-                theta_h[j] += h;
-                var specs_h = pack.Unpack(theta_h);
+                double h = EpsFD * (1.0 + System.Math.Abs(currenParams[j]));
+                var params_h = (double[])currenParams.Clone();
+                params_h[j] += h;
+                var specs_h = pack.Unpack(params_h);
+                // residual with the jth component of the parameter array increased by h
                 var r_h = BuildResidualOnly(specs_h, constraints);
-                for (int i = 0; i < m; i++) J[i, j] = (r_h[i] - r[i]) / h;
+                int i = 0;
+                try
+                {
+                    for (i = 0; i < m; i++) J[i, j] = (r_h[i] - r[i]) / h;
+                } catch (Exception e)
+                {
+                    Console.WriteLine($"i, j => {i}, {j}");
+                    Console.WriteLine($"J rows/cols => {m}/{p}");
+                    Console.WriteLine($"len(r)/len(r_h) => {r.Length}/{r_h.Length}");
+                    Console.WriteLine($"len(params)/len(params_h) => {p}/{params_h.Length}");
+                    Console.WriteLine(e.Message);
+                }
             }
             return (r, J);
         }
@@ -143,22 +240,6 @@ namespace ArcFrame.Solvers
             }
             //Console.WriteLine("Returning residual...");
             return all.ToArray();
-        }
-
-        private static double[,] Transpose(double[,] A)
-        {
-            int m = A.GetLength(0), n = A.GetLength(1);
-            var AT = new double[n, m];
-            for (int i = 0; i < m; i++)
-                for (int j = 0; j < n; j++)
-                    AT[j, i] = A[i, j];
-            return AT;
-        }
-
-        private static void AddLevenbergDamping(double[,] H, double lambda)
-        {
-            int n = H.GetLength(0);
-            for (int i = 0; i < n; i++) H[i, i] += lambda * H[i, i] + 1e-12;
         }
 
         // ---------------- parameter pack across all segments ----------------
@@ -199,32 +280,50 @@ namespace ArcFrame.Solvers
                 _totalP = total;
             }
 
+            /// <summary>
+            /// Pack a CurveSpec list into a single dimensional array.
+            /// Assuming we are optimizing P0, L and R0 it will look like this:
+            /// [P00, P01, ... P0N, L, 
+            /// </summary>
+            /// <param name="specs"></param>
+            /// <returns></returns>
             public double[] Pack2(CurveSpec[] specs)
             {
-                var theta = new double[_totalP];
+                var parameters = new double[_totalP];
+                // current index in the parameter array
+                // new parameters will go at this index.
                 int k = 0;
                 for (int s = 0; s < _numSeg; s++)
                 {
                     var spec = specs[s];
-                    if (_optP0) { Array.Copy(spec.P0, 0, theta, k, _N); k += _N; }
-                    if (_optL) { theta[k++] = System.Math.Log(System.Math.Max(1e-9, spec.Length)); }
+                    if (_optP0) { Array.Copy(spec.P0, 0, parameters, k, _N); k += _N; }
+                    if (_optL) 
+                    { 
+                        parameters[k] = spec.Length; 
+                        k++;
+                    }
                     if (_optR0)
                     {
                         // start at zero offset; solver will find angles. Pack zeros.
                         int d = SOParam.ParamCount(_N);
-                        for (int i = 0; i < d; i++) theta[k++] = 0.0;
+                        for (int i = 0; i < d; i++) parameters[k++] = 0.0;
                     }
                     if (_laws[s] != null)
                     {
                         var p = _laws[s]!.GetParams();
-                        Array.Copy(p, 0, theta, k, p.Length);
+                        Array.Copy(p, 0, parameters, k, p.Length);
                         k += p.Length;
                     }
                 }
-                return theta;
+                return parameters;
             }
 
-            public CurveSpec[] Unpack(double[] theta)
+            /// <summary>
+            /// Build CurveSpec list from packed parameter array.
+            /// </summary>
+            /// <param name="parameters"></param>
+            /// <returns></returns>
+            public CurveSpec[] Unpack(double[] parameters)
             {
                 var specs = new CurveSpec[_numSeg];
                 int k = 0; //keeps track of the indices of each parameter type
@@ -233,58 +332,58 @@ namespace ArcFrame.Solvers
                 {
                     var seed = _seed[s];
 
-                    oldK = k;
-                    double[] P0 = _optP0 ? Slice(theta, ref k, _N) : (double[])seed.P0.Clone();
+                    double[] P0 = _optP0 ? Slice(parameters, ref k, _N) : (double[])seed.P0.Clone();
                     //Console.WriteLine($"Unpack P0 | k ({oldK}=>{k}) | ({s} : {_numSeg-1})");
                     //Console.Write("P0 =");
                     //Helpers.PrintVector(P0);
-                    oldK = k;
-                    double L = _optL ? System.Math.Exp(theta[k++]) : seed.Length;
+                    //oldK = k;
+                    double L = _optL ? Math.Abs(parameters[k++]) : seed.Length;
                     //Console.WriteLine($"Unpack L | k ({oldK}=>{k}) | ({s} : {_numSeg-1})");
-
-                    oldK = k;
+                    //oldK = k;
                     double[,] R0 = (double[,])seed.R0.Clone();
                     if (_optR0)
                     {
                         int d = SOParam.ParamCount(_N);
-                        var w = Slice(theta, ref k, d);
+                        var w = Slice(parameters, ref k, d);
                         var dR = SOParam.BuildRotation(_N, w);
                         R0 = Helpers.Multiply(dR, R0);
                     }
                     //Console.WriteLine($"Unpack R0 | k ({oldK}=>{k}) | ({s} : {_numSeg-1})");
-                    oldK = k;
+                    //oldK = k;
                     ICurvatureLaw law;
                     if (_laws[s] != null)
                     {
                         //Console.Write("Is IParamCurvatureLaw => ");
                         int q = _laws[s]!.GetParams().Length;
-                        var p = Slice(theta, ref k, q);
+                        var p = Slice(parameters, ref k, q);
                         law = _laws[s]!.CloneWithParams(p);
                     }
                     else law = seed.Kappa;
                     //Console.WriteLine($"Unpack kappa | k ({oldK}=>{k}) | ({s} : {_numSeg-1})");
+                    //oldK = k;
 
                     specs[s] = new CurveSpec(_N, L, P0, R0, law, seed.Frame);
-                    string p0 = "";
-                    string r0 = "[";
-                    for (int i = 0; i < P0.Length; i++) p0 += P0[i].ToString();
-                    for (int i = 0; i < R0.GetLength(0); i++)
-                    {
-                        r0 += "[";
-                        for (int j = 0; j < R0.GetLength(1); j++)
-                        {
-                            r0 += R0[i, j].ToString();
-                            r0 += j == R0.GetLength(1) ? "" : ", ";
-                        }
-                        r0 += "], ";
-                    }
-                    r0 += "]";
+                    //string p0 = "";
+                    //string r0 = "[";
+                    //for (int i = 0; i < P0.Length; i++) p0 += P0[i].ToString();
+                    //for (int i = 0; i < R0.GetLength(0); i++)
+                    //{
+                    //    r0 += "[";
+                    //    for (int j = 0; j < R0.GetLength(1); j++)
+                    //    {
+                    //        r0 += R0[i, j].ToString();
+                    //        r0 += j == R0.GetLength(1) ? "" : ", ";
+                    //    }
+                    //    r0 += "], ";
+                    //}
+                    //r0 += "]";
                     //Console.WriteLine($"Write spec number {s} | _N: {_N} | L: {L} | P0: [{p0}] | R0: {r0} | law: {law.ToString()} | frame: {seed.Frame.ToString()} | ({s} : {_numSeg-1})");
                     //Console.WriteLine();
                 }
                 //Console.WriteLine($"Returning specs (count: {specs.Length})");
                 return specs;
             }
+
 
             private static double[] Slice(double[] v, ref int k, int len)
             {

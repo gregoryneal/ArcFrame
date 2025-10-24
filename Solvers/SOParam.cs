@@ -2,15 +2,15 @@
 
 namespace ArcFrame.Solvers
 {
-    /// Minimal parameterization of R ∈ SO(N) via planar Givens rotations.
-    /// We map a vector ω of length N*(N-1)/2 to a left-multiplied rotation:
-    ///    R(ω) = Π_{i<j} G(i,j, θ_ij)
+    /// Minimal parameterization of R in SO(N) via planar Givens rotations.
+    /// We map a vector w of length N*(N-1)/2 to a left-multiplied rotation:
+    ///    R(w) = Π_{i<j} G(i,j, θ_ij)
     /// Zero vector => Identity. Stable for LM with FD Jacobians.
     internal static class SOParam
     {
         public static int ParamCount(int N) => (N * (N - 1)) / 2;
 
-        /// Build rotation from ω (applied on the LEFT of the seed).
+        /// Build rotation from w (applied on the LEFT of the seed).
         public static double[,] BuildRotation(int N, double[] omega)
         {
             double[,] R = RigidTransform.Identity(N).R;
