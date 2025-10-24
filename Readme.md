@@ -12,6 +12,7 @@ IntrinsicCurve builds curves from a CurveSpec that couples initial pose, frame m
 
 ### Constraint Solver
 Uses the Levenberg-Marquardt algorithm to solve a CompositeCurveProblem given a set of constraints.
+<img width="1396" height="613" alt="Example_BuildBoundedClothoid" src="https://github.com/user-attachments/assets/cc1f612a-b41e-4c0e-8a20-dca5f23ac01a" />
 
 ### Clothoids and curvature laws
 Linear curvature laws and generalized Fresnel integral evaluators support accurate clothoid construction and sampling.
