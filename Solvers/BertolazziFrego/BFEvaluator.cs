@@ -520,14 +520,14 @@ namespace ArcFrame.Solvers.BertolazziFrego
             switch (frame)
             {
                 case FrameModel.Frenet:
-                    R = ONFrame.R0_FromTN([ct1, st1], [-st1, ct1]);
+                    R = ONFrame.R0_FromTN_Complete([ct1, st1], [-st1, ct1]);
                     break;
                 case FrameModel.Bishop:
                     //Rotate the initial frame by t1 in the XY plane
                     R = RigidTransform.Rotation2D(t1, 0, 0).R;
                     break;
                 default:
-                    R = ONFrame.R0_FromTN([ct1, st1], [-st1, ct1]);
+                    R = ONFrame.R0_FromTN_Complete([ct1, st1], [-st1, ct1]);
                     break;
             }
             return new Sample([x0 + (s * XY[0][0]), y0 + (s * XY[1][0])], R, s, [k0 + (dk * s)]);
@@ -562,14 +562,14 @@ namespace ArcFrame.Solvers.BertolazziFrego
             switch (p.Frame)
             {
                 case FrameModel.Frenet:
-                    R = ONFrame.R0_FromTN([ct1, st1], [-st1, ct1]);
+                    R = ONFrame.R0_FromTN_Complete([ct1, st1], [-st1, ct1]);
                     break;
                 case FrameModel.Bishop:
                     //Rotate the initial frame by t1 - t0 in the XY plane
                     R = Helpers.Multiply(RigidTransform.Rotation2D(t1 - t0, 0, 0).R, p.R0);
                     break;
                 default:
-                    R = ONFrame.R0_FromTN([ct1, st1], [-st1, ct1]);
+                    R = ONFrame.R0_FromTN_Complete([ct1, st1], [-st1, ct1]);
                     break;
             }
             return new Sample([p.P0[0] + (XY[0][0] * s), p.P0[1] + (XY[1][0] * s)], R, s, l.Eval(s));

@@ -11,7 +11,7 @@ namespace ArcFrame.Core.Geometry
     {
         //center and two basis vectors to establish the 2D subplane the circle inhabits
         public double[] _c, _e1, _e2;
-        private double[,] _R0; // starting orthornormal frame, column vectors are R0 = [e1, e2, norm(e1xe2), ...]
+        private double[,] _R0;
         //radius, start angle and angle delta. If the arc is a cirle centered in the XZ plane, _a0 = 0 would correspond to the point (_r, 0), _ad > 0 corresponds to CCW rotations and _ad < 0 to CW rotations
         public double _r, _a0, _ad, _len, _sign;
         public int _n;
@@ -50,7 +50,7 @@ namespace ArcFrame.Core.Geometry
                 T0[i] = _sign * ((-sina * _e1[i]) + (cosa * _e2[i]));
                 N0[i] = _sign * ((-cosa * _e1[i]) + (-sina * _e2[i]));
             }
-            _R0 = ONFrame.R0_FromT_Complete(T0, N0);
+            _R0 = ONFrame.R0_FromTN_Complete(T0, N0);
         }
 
         public Sample Evaluate(double s)

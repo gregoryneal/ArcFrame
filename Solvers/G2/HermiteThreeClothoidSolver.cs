@@ -53,6 +53,7 @@ namespace ArcFrame.Solvers.G2
             prob.Add(new CompositeCurveJointConstraint(1, 2, c0: true, c1: true, c2: true, type: ConstraintType.Hard));
 
             // Optional mild fairness: discourage big slopes |dk| and excessive lengths
+            // Not really tested.
             if (fairnessWeight > 0)
             {
                 prob.Add(new SlopeRegularizer(0, fairnessWeight));
@@ -97,8 +98,8 @@ namespace ArcFrame.Solvers.G2
             double[] P1, double theta1, double k1)
         {
             int N = 2;
-            var R0 = RigidTransform.Rotation2D(theta0, 0, 0).R;// FrameFromTheta(theta0);
-            var R2 = RigidTransform.Rotation2D(theta1, 0, 0).R;// FrameFromTheta(theta1);
+            var R0 = RigidTransform.Rotation2D(theta0, 0, 0).R;
+            var R2 = RigidTransform.Rotation2D(theta1, 0, 0).R;
             var D = Helpers.Subtract(P1, P0);
             double Ltot = Helpers.Len(D);
             if (Ltot < 1e-9) Ltot = 1.0;
@@ -121,33 +122,20 @@ namespace ArcFrame.Solvers.G2
             var law1 = new LinearCurvatureLaw(new[] { kJoin1 }, new[] { dk1 });
             var law2 = new LinearCurvatureLaw(new[] { kJoin2 }, new[] { dk2 });
 
-            // Place seed segment 0 exactly at P0, frame θ0
+            // Build specs
             var spec0 = new CurveSpec(N, L0, (double[])P0.Clone(), R0, law0, FrameModel.Bishop);
-
-            // Predict intermediate frames/anchors by forward marching the previous ones:
-            var E0 = new CachedIntrinsicCurve(spec0).Evaluate(L0);
-            var spec1 = new CurveSpec(N, L1, E0.P, FrameFromT(E0.T), law1, FrameModel.Bishop);
-
-            var E1 = new CachedIntrinsicCurve(spec1).Evaluate(L1);
-            var spec2 = new CurveSpec(N, L2, E1.P, FrameFromTheta(theta1), law2, FrameModel.Bishop);
+            var sample1 = new CachedIntrinsicCurve(spec0).Evaluate(L0);
+            var spec1 = new CurveSpec(N, L1, sample1.P, FrameFromT(sample1.T), law1, FrameModel.Bishop);
+            var sample2 = new CachedIntrinsicCurve(spec1).Evaluate(L1);
+            var spec2 = new CurveSpec(N, L2, sample2.P, RigidTransform.Rotation2D(theta1, 0, 0).R, law2, FrameModel.Bishop);
 
             return (spec0, spec1, spec2);
         }
 
-        private static double[,] FrameFromTheta(double theta)
-        {
-            // 2D ONB with X along the tangent
-            double c = Math.Cos(theta);
-            double s = Math.Sin(theta);
-            var R = new double[2, 2];
-            R[0, 0] = c; R[0, 1] = -s;
-            R[1, 0] = s; R[1, 1] = c;
-            return R;
-        }
         private static double[,] FrameFromT(double[] T)
         {
             double theta = Math.Atan2(T[1], T[0]);
-            return FrameFromTheta(theta);
+            return RigidTransform.Rotation2D(theta, 0, 0).R;
         }
     }
 }

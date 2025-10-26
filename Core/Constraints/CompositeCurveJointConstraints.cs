@@ -270,7 +270,7 @@ namespace ArcFrame.Core.Constraints
     // ==================================================
     /// <summary>
     /// Stay between two IArcLengthCurves. Curves and bounds
-    /// must be in 2D XY plane. 
+    /// must be in 2D XY plane, I think... TODO: Test bounded curves in 3D
     /// </summary>
     public sealed class BoundedCurveConstraint : ICompositeConstraint
     {

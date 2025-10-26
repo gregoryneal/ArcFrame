@@ -33,30 +33,30 @@
     {
         private static double eps = 1E-12;
 
+        public static double[,] R0_FromTNB_Complete(double[] T, double[] N, double[] B)
+        {
+            return R0_FromR_Complete(R0_FromTNB(T, N, B));
+        }
+
         public static double[,] R0_FromTNB(double[] T, double[] N, double[] B)
         {
-            double[,] R = new double[3, 3];
-            R[0, 0] = T[0];
-            R[1, 0] = T[1];
-            R[2, 0] = T[2];
-            R[0, 1] = N[0];
-            R[1, 1] = N[1];
-            R[2, 1] = N[2];
-            R[0, 2] = B[0];
-            R[1, 2] = B[1];
-            R[2, 2] = B[2];
-
+            double[,] R = new double[T.Length, 3];
+            SetCol(R, 0, T);
+            SetCol(R, 1, N);
+            SetCol(R, 2, B);
             return R;
         }
 
-        //TODO: implement ND in this method
+        public static double[,] R0_FromTN_Complete(double[] T, double[] N)
+        {
+            return R0_FromR_Complete(R0_FromTN(T, N));
+        }
+
         public static double[,] R0_FromTN(double[] T, double[] N)
         {
-            double[,] R = new double[2, 2];
-            R[0, 0] = T[0];
-            R[1, 0] = T[1];
-            R[0, 1] = N[0];
-            R[1, 1] = N[1];
+            double[,] R = new double[T.Length, 2];
+            SetCol(R, 0, T);
+            SetCol(R, 1, N);
             return R;
         }
 
@@ -146,7 +146,7 @@
         ///              [1, 0, 0]
         ///            ]
         /// </summary>
-        /// <param name="R_incomplete"></param>
+        /// <param name="A">The incomplete basis matrix</param>
         /// <returns></returns>
         public static double[,] R0_FromR_Complete(double[,] A, double tol = 1E-10)
         {
@@ -159,7 +159,7 @@
             for (int j = 0; j < d; j++)
                 cols.Add(GetCol(A, j));
 
-            // Verify approximate orthonormality (optional but helpful)
+            // Verify approximate orthonormality
             for (int i = 0; i < d; i++)
                 for (int j = i; j < d; j++)
                 {

@@ -16,7 +16,7 @@
             }
 
             if (law is LinearCurvatureLaw lin) return LinearJet(lin, s, order);
-            if (law is SplineCurvatureLaw spline) return spline.EvalJet(s, order);
+            //if (law is SplineCurvatureLaw spline) return spline.EvalJet(s, order);
 
             return NumericJet(law, s, order);
         }

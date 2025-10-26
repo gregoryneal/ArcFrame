@@ -28,6 +28,7 @@ namespace ArcFrame.Solvers
 
     public sealed class CompositeCurveSolverResult
     {
+        public required CurveSpec[][] TrialSolutions { get; set; }
         public required CurveSpec[] FinalSolution { get; set; }
         public required bool Solved { get; set; }
         public required string Message { get; set; }
@@ -70,12 +71,16 @@ namespace ArcFrame.Solvers
         /// <returns></returns>
         public CompositeCurveSolverResult Solve(CompositeCurveProblem problem, bool optimizeP0 = true, bool optimizeLength = true, bool optimizeR0 = true)
         {
+            List<CurveSpec[]> trialSolutions = new List<CurveSpec[]>();
+
             //Console.WriteLine("CompositeCurveProblem.Solve()");
             Pack pack = new Pack(problem.Seeds, optimizeP0, optimizeLength, optimizeR0);
             double[] currentParameters = pack.Pack2(problem.Seeds);
             double[] currentResiduals = BuildResidualOnly(problem.Seeds, problem.Constraints);
             double currentCost = Helpers.Dot(currentResiduals, currentResiduals);
             int _numParams = currentParameters.Length;
+
+            trialSolutions.Add(problem.Seeds);
 
             double lambda = 1e-2;
             double lambdaFactor = 10;
@@ -116,6 +121,7 @@ namespace ArcFrame.Solvers
                 {
                     return new CompositeCurveSolverResult
                     {
+                        TrialSolutions = [specs],
                         FinalSolution = specs,
                         Solved = false,
                         Message = "Solution did not converge, matrix not factorizable.",
@@ -153,6 +159,7 @@ namespace ArcFrame.Solvers
                 double costChange = currentCost - newCost;
                 if (costChange > 0)
                 {
+                    trialSolutions.Add(specs);
                     currentParameters = newParameters;
                     //currentResiduals = newResiduals;
                     currentCost = newCost;
@@ -162,6 +169,7 @@ namespace ArcFrame.Solvers
                     {
                         return new CompositeCurveSolverResult
                         {
+                            TrialSolutions = trialSolutions.ToArray(),
                             FinalCost = currentCost,
                             FinalSolution = specs,
                             Iterations = i,
@@ -181,6 +189,7 @@ namespace ArcFrame.Solvers
             //Console.WriteLine();
             return new CompositeCurveSolverResult
             {
+                TrialSolutions = [.. trialSolutions],
                 FinalSolution = specs,
                 FinalCost = currentCost,
                 Iterations = MaxIter,

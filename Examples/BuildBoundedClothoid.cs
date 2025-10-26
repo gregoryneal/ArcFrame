@@ -40,7 +40,7 @@ namespace ArcFrame.Examples
     /// </summary>
     public class BuildBoundedClothoid
     {
-        public static (CompositeCurve finalCurve, CompositeCurve leftBound, CompositeCurve rightBound) Main()
+        public static (CompositeCurve[] trialSolutions, CompositeCurve finalCurve, CompositeCurve leftBound, CompositeCurve rightBound) Main()
         {
             double laneWidth = 2;
             double laneStartX = -10;
@@ -114,7 +114,18 @@ namespace ArcFrame.Examples
                 constrainedCurve.AddG1(new CachedIntrinsicCurve(solvedSpecs[i]), out _);
             }
 
-            return (constrainedCurve, upperLaneCurve, lowerLaneCurve);
+            CompositeCurve[] trialCurves = new CompositeCurve[solverResult.TrialSolutions.Length];
+            for (int i = 0; i < solverResult.TrialSolutions.Length; i++)
+            {
+                CompositeCurve trialCurve = new CompositeCurve();
+                for (int j = 0; j < solverResult.TrialSolutions[i].Length; j++)
+                {
+                    trialCurve.AddG1(new CachedIntrinsicCurve(solverResult.TrialSolutions[i][j]), out _);
+                }
+                trialCurves[i] = trialCurve;
+            }
+
+            return (trialCurves, constrainedCurve, upperLaneCurve, lowerLaneCurve);
         }
     }
 }

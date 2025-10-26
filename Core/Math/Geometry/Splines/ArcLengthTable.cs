@@ -38,11 +38,9 @@ namespace ArcFrame.Core.Geometry.Splines
 
         public double MapStoT(double sQuery)
         {
-            sQuery = System.Math.Max(0, System.Math.Min(Length, sQuery));
-            int i = Array.BinarySearch(s, sQuery); if (i >= 0) return t[i];
-            int k = System.Math.Max(1, System.Math.Min(s.Length - 1, ~i));
-            double s0 = s[k - 1], s1 = s[k], u = (sQuery - s0) / (s1 - s0);
-            return t[k - 1] + u * (t[k] - t[k - 1]);
+            if (sQuery > Length) sQuery = Length;
+            if (sQuery < 0) sQuery = 0;
+            return sQuery / Length;
         }
     }
 

@@ -83,7 +83,7 @@ namespace ArcFrame.Core.Geometry
             double[] k0v = { k0, tau0 };
             double[] dkv = { dk, dtau };
             LinearCurvatureLaw law = new LinearCurvatureLaw(k0v, dkv);
-            return new Clothoid(new ClothoidCurveSpec(3, L, p, ONFrame.R0_FromTNB(t, n, b), law, frame), evaluator);
+            return new Clothoid(new ClothoidCurveSpec(3, L, p, ONFrame.R0_FromTNB_Complete(t, n, b), law, frame), evaluator);
         }
 
         public static Clothoid From3D(double[] P0, double[,] R0, double k0, double dk, double tau0, double dtau, double L, IEvaluator evaluator, FrameModel frame = FrameModel.Frenet)
