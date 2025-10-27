@@ -5,7 +5,16 @@ ArcFrame is a C# library for generating, evaluating, and composing arc-length-pa
 ## What it provides
 
 ### Unified curve model
-IArcLengthCurve with Evaluate(s) → (P, R, k) where P is position, R is an orthonormal frame [T, N, …], and k are principal curvatures.
+IArcLengthCurve with Evaluate(s) → (P, R, k) where P is position, R is an orthonormal frame [T, N, …], and k are principal curvatures. This contract ensures the curve can be
+embedded in any spatial dimension.
+
+### Native Spline model
+A generalized matrix based Spline object, works as a native IArcLengthCurve by caching an ArcLengthTable on creation. Works with any matrix based spline model.
+
+Position found via right-multiplication: P(t) = GBt' where G is the control point window, B is the basis matrix and t' is the power monomial vector [1, t, t^2, ...]^T
+
+Built in cubic B-Splines include: CatmullRomSpline, BezierSpline, BSpline, HermiteSpline. Native support for any degree: linear, quadratic, cubic, quartic, and beyond.
+<img width="1455" height="766" alt="CatmullRomSpline" src="https://github.com/user-attachments/assets/ce37cbc6-f717-47b0-926f-ba606cbb9cc6" />
 
 ### Intrinsic curves
 IntrinsicCurve builds curves from a CurveSpec that couples initial pose, frame model (Frenet or Bishop), and a curvature law.
