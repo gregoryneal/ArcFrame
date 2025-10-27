@@ -515,6 +515,60 @@
                 M[r1, j] = M[r2, j];
                 M[r2, j] = tmp;
             }
+        }// A function to calculate binomial coefficients "n choose k"
+        private static long BinomialCoefficient(int n, int k)
+        {
+            if (k < 0 || k > n)
+            {
+                return 0;
+            }
+            if (k == 0 || k == n)
+            {
+                return 1;
+            }
+            if (k > n / 2)
+            {
+                k = n - k;
+            }
+
+            long result = 1;
+            for (int i = 1; i <= k; i++)
+            {
+                result = result * (n - i + 1) / i;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Computes the nth derivative of a function using the central finite difference method.
+        /// </summary>
+        /// <param name="f">The function to differentiate.</param>
+        /// <param name="x">The point at which to evaluate the derivative.</param>
+        /// <param name="n">The order of the derivative.</param>
+        /// <param name="len">The expected length of the output array</param>
+        /// <param name="h">The step size.</param>
+        /// <returns>The approximate value of the nth derivative.</returns>
+        public static double[] Differentiate(Func<double, double[]> f, double x, int n, int len, double h = 1E-6)
+        {
+            if (n < 0)
+            {
+                throw new ArgumentException("The derivative order 'n' must be non-negative.");
+            }
+            if (h <= 0)
+            {
+                throw new ArgumentException("The step size 'h' must be positive.");
+            }
+
+            double[] sum = new double[len];
+            for (int k = 0; k <= n; k++)
+            {
+                double coefficient = BinomialCoefficient(n, k);
+                double sign = (n - k) % 2 == 0 ? 1.0 : -1.0;
+                double[] functionValue = f(x + (k - (double)n / 2.0) * h);
+                sum = Helpers.Add(sum, Helpers.Multiply(sign * coefficient, functionValue));
+            }
+
+            return Helpers.Multiply(sum, 1 / System.Math.Pow(h, n));
         }
 
         public static void PrintMat(double[,] R)

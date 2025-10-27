@@ -153,6 +153,7 @@
             int N = A.GetLength(0);
             int d = A.GetLength(1);
             if (d > N) throw new ArgumentException("d must be <= N.");
+            if (d == N) return (double[,])A.Clone();
 
             // Copy A into a working list of columns (as double[] for convenience)
             var cols = new List<double[]>(d);
@@ -262,7 +263,7 @@
             for (int i = 0; i < N; i++) c[i] = M[i, j];
             return c;
         }
-        private static void SetCol(double[,] M, int j, double[] c)
+        public static void SetCol(double[,] M, int j, double[] c)
         {
             for (int i = 0; i < M.GetLength(0); i++) M[i, j] = c[i];
         }
