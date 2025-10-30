@@ -8,16 +8,13 @@ ArcFrame is a C# library for generating, evaluating, and composing arc-length-pa
 IArcLengthCurve with Evaluate(s) → (P, R, k) where P is position, R is an orthonormal frame [T, N, …], and k are principal curvatures. This contract ensures the curve can be
 embedded in any spatial dimension.
 
-### Native Spline model
-A generalized matrix based Spline object, works as a native IArcLengthCurve by caching an ArcLengthTable on creation. Works with any matrix based spline model.
-
-Position found via right-multiplication: P(t) = GBt' where G is the control point window, B is the basis matrix and t' is the power monomial vector [1, t, t^2, ...]^T
-
-Built in cubic B-Splines include: CatmullRomSpline, BezierSpline, BSpline, HermiteSpline. Native support for any degree: linear, quadratic, cubic, quartic, and beyond.
-<img width="1455" height="766" alt="CatmullRomSpline" src="https://github.com/user-attachments/assets/ce37cbc6-f717-47b0-926f-ba606cbb9cc6" />
-
 ### Intrinsic curves
-IntrinsicCurve builds curves from a CurveSpec that couples initial pose, frame model (Frenet or Bishop), and a curvature law.
+IntrinsicCurve builds curves from a CurveSpec that couples initial pose (ND), frame model (Frenet or Bishop), and a curvature law (N-1 components).
+<img width="1432" height="683" alt="IntrinsicCurveDemo" src="https://github.com/user-attachments/assets/656fccb1-cc99-485f-9d67-71782e9cf95a" />
+
+### Lie-group frame stepping
+A midpoint integrator on SO(N) with adaptive step control for stable propagation of pose over arc length.
+TODO: implement RK4 frame stepping.
 
 ### Constraint Solver
 Uses the Levenberg-Marquardt algorithm to solve a CompositeCurveProblem given a set of constraints.
@@ -26,9 +23,13 @@ Uses the Levenberg-Marquardt algorithm to solve a CompositeCurveProblem given a 
 ### Clothoids and curvature laws
 Linear curvature laws and generalized Fresnel integral evaluators support accurate clothoid construction and sampling.
 
-### Lie-group frame stepping
-A midpoint integrator on SO(N) with adaptive step control for stable propagation of pose over arc length.
-TODO: implement RK4 frame stepping.
+### Native Spline model
+A generalized matrix based Spline object, works as a native IArcLengthCurve by caching an ArcLengthTable on creation. Works with any matrix based spline model.
+
+Position found via right-multiplication: P(t) = GBt' where G is the control point window, B is the basis matrix and t' is the power monomial vector [1, t, t^2, ...]^T
+
+Built in cubic B-Splines include: CatmullRomSpline, BezierSpline, BSpline, HermiteSpline. Native support for any degree: linear, quadratic, cubic, quartic, and beyond.
+<img width="1455" height="766" alt="CatmullRomSpline" src="https://github.com/user-attachments/assets/ce37cbc6-f717-47b0-926f-ba606cbb9cc6" />
 
 ### Composition and transforms
 CompositeCurve concatenates segments with automatic G1 alignment. TransformedCurve, RigidTransform, and PromotedCurve embed and position curves across dimensions.
