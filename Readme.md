@@ -19,6 +19,7 @@ TODO: implement RK4 frame stepping.
 ### Constraint Solver
 Uses the Levenberg-Marquardt algorithm to solve a CompositeCurveProblem given a set of constraints.
 <img width="1396" height="613" alt="Example_BuildBoundedClothoid" src="https://github.com/user-attachments/assets/cc1f612a-b41e-4c0e-8a20-dca5f23ac01a" />
+<img width="640" height="700" alt="3ArcClothoidSolver3D" src="https://github.com/user-attachments/assets/5be5c4ea-1f93-478c-9211-c8ab66c4c9d0" />
 
 ### Clothoids and curvature laws
 Linear curvature laws and generalized Fresnel integral evaluators support accurate clothoid construction and sampling.
