@@ -1,5 +1,6 @@
 ﻿using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Math;
+using System;
 
 namespace ArcFrame.Examples
 {
@@ -10,13 +11,13 @@ namespace ArcFrame.Examples
     {
         public static void Main()
         {
-            double[] center = [0, 0, 0];
-            double[] endpoint1 = [2, 0, 0];
-            double[] endpoint2 = [0, 2, 0];
+            double[] center = { 0, 0, 0 };
+            double[] endpoint1 = { 2, 0, 0 };
+            double[] endpoint2 = { 0, 2, 0 };
 
             Line line1 = new Line(center, endpoint1);
             Line line2 = new Line(center, endpoint2); //lines are perpendicular
-            Arc arc = new Arc(center, [1, 0, 0], [0, 0, 1], 3, Math.PI, Math.PI / 3); //60deg arc with radius 3 in the XZ plane centered on the origin
+            Arc arc = new Arc(center, new double[] { 1, 0, 0 }, new double[] { 0, 0, 1 }, 3, Math.PI, Math.PI / 3); //60deg arc with radius 3 in the XZ plane centered on the origin
 
             CompositeCurve curve = new CompositeCurve();
             curve.Add(arc).AddG1(line1, out RigidTransform xfUsed1).AddG1(line2, out RigidTransform xfUsed2);

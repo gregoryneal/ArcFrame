@@ -2,11 +2,11 @@
 {
     public class OptimizationResult
     {
-        public required double[] FinalParameters { get; set; }
-        public required double FinalCost { get; set; }
-        public required int Iterations { get; set; }
-        public required bool Success { get; set; }
-        public required string Message { get; set; }
+        public double[] FinalParameters { get; set; } = { };
+        public double FinalCost { get; set; } = 0;
+        public int Iterations { get; set; } = 0;
+        public bool Success { get; set; } = false;
+        public string Message { get; set; } = "";
     }
 
     public class LevenbergMarquardtOptimizer
@@ -118,7 +118,7 @@
                     deltaP = LA.LUSolve(LU, piv, bVector);
                     //deltaP = LA.S(aMatrix, bVector);
                 }
-                catch (Exception ex)
+                catch (System.Exception ex)
                 {
                     return new OptimizationResult
                     {

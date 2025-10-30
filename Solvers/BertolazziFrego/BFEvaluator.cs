@@ -2,6 +2,8 @@
 using ArcFrame.Core.Params;
 using ArcFrame.Core.Params.CurvatureLaws;
 using ArcFrame.Core.Results;
+using System;
+using System.Collections.Generic;
 
 namespace ArcFrame.Solvers.BertolazziFrego
 {
@@ -77,11 +79,13 @@ namespace ArcFrame.Solvers.BertolazziFrego
         /// </summary>
         public static readonly int A_SMALL_SERIES_SIZE = 3;
 
-        public string Key => throw new NotImplementedException();
+        public string Key => "BFEvaluator";
 
-        public string Author => throw new NotImplementedException();
+        public string Author => "Enrico Bertolazzi and Marco Frego";
 
-        public string Reference => throw new NotImplementedException();
+        public string Reference => "https://doi.org/10.48550/arXiv.1305.6644";
+
+        public int TargetDimension => 2;
 
         /// <summary>
         /// The Generalized Fresnel integral in 2D as defined by Bertolazzi and Frego is given as:
@@ -169,7 +173,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
                 }
             }
 
-            return [X, Y];
+            return new double[][] { X, Y };
         }
 
         /// <summary>
@@ -232,7 +236,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
                 }
             }
 
-            return [X, Y];
+            return new double[][] { X, Y };
         }
 
         /// <summary>
@@ -297,7 +301,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
 
             }
 
-            return [X, Y];
+            return new double[][] { X, Y };
         }
 
         private static double RLommel(double mu, double v, double b)
@@ -351,7 +355,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
         /// <param name="C"></param>
         /// <param name="S"></param>
         /// <exception cref="Exception"></exception>
-        private static void FresnelCS(double arcLength, out double C, out double S)
+        internal static void FresnelCS(double arcLength, out double C, out double S)
         {
             double x = Math.Abs(arcLength);
             double EPS = 1E-15;
@@ -520,17 +524,17 @@ namespace ArcFrame.Solvers.BertolazziFrego
             switch (frame)
             {
                 case FrameModel.Frenet:
-                    R = ONFrame.R0_FromTN_Complete([ct1, st1], [-st1, ct1]);
+                    R = ONFrame.R0_FromTN_Complete(new double[] { ct1, st1 }, new double[] { -st1, ct1 });
                     break;
                 case FrameModel.Bishop:
                     //Rotate the initial frame by t1 in the XY plane
                     R = RigidTransform.Rotation2D(t1, 0, 0).R;
                     break;
                 default:
-                    R = ONFrame.R0_FromTN_Complete([ct1, st1], [-st1, ct1]);
+                    R = ONFrame.R0_FromTN_Complete(new double[] { ct1, st1 }, new double[] { -st1, ct1 });
                     break;
             }
-            return new Sample([x0 + (s * XY[0][0]), y0 + (s * XY[1][0])], R, s, [k0 + (dk * s)]);
+            return new Sample(new double[] { x0 + (s * XY[0][0]), y0 + (s * XY[1][0]) }, R, s, new double[] { k0 + (dk * s) });
         }
 
         public Sample Evaluate(CurveSpec p, double s)
@@ -562,17 +566,17 @@ namespace ArcFrame.Solvers.BertolazziFrego
             switch (p.Frame)
             {
                 case FrameModel.Frenet:
-                    R = ONFrame.R0_FromTN_Complete([ct1, st1], [-st1, ct1]);
+                    R = ONFrame.R0_FromTN_Complete(new double[] { ct1, st1 }, new double[] { -st1, ct1 });
                     break;
                 case FrameModel.Bishop:
                     //Rotate the initial frame by t1 - t0 in the XY plane
                     R = Helpers.Multiply(RigidTransform.Rotation2D(t1 - t0, 0, 0).R, p.R0);
                     break;
                 default:
-                    R = ONFrame.R0_FromTN_Complete([ct1, st1], [-st1, ct1]);
+                    R = ONFrame.R0_FromTN_Complete(new double[] { ct1, st1 }, new double[] { -st1, ct1 });
                     break;
             }
-            return new Sample([p.P0[0] + (XY[0][0] * s), p.P0[1] + (XY[1][0] * s)], R, s, l.Eval(s));
+            return new Sample(new double[] { p.P0[0] + (XY[0][0] * s), p.P0[1] + (XY[1][0] * s) }, R, s, l.Eval(s));
         }
     }
 }

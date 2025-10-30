@@ -10,18 +10,60 @@ namespace ArcFrame.Core.Geometry
     /// There are no closed form solutions so to evaluate a Sample
     /// we must implement an IEvaluator that takes a CurveSpec and
     /// an arc length and calculates the Sample data.
+    /// None of the papers i have read support bishop frames natively
+    /// in the algorithm, so automatically fall back to a 
+    /// LieGroupMidpointStepper in that case.
     /// </summary>
-    /// <param name="P">Parameters for the clothoid</param>
-    /// <param name="Eval">Evaluator for the clothoid, this generates Samples along the arc length s given P and s.</param>
-    public class Clothoid(CurveSpec P, IEvaluator Eval) : IArcLengthCurve
+    public class Clothoid : IArcLengthCurve
     {
-        private readonly CurveSpec _p = P;
-        private readonly IEvaluator _eval = Eval;
+        private readonly CurveSpec _p;
+        private readonly IEvaluator _eval;
+        private readonly IFrameStepper? _stepper = null;
+        private readonly IntegratorOptions? _opts = null;
+        private readonly bool _useFrameStepper = false;
+
+        /// <param name="P">Parameters for the clothoid</param>
+        /// <param name="Eval">Evaluator for the clothoid, this generates Samples along the arc length s given P and s.</param>
+        public Clothoid(CurveSpec P, IEvaluator Eval)
+        {
+            _p = P;
+            _eval = Eval;
+            _useFrameStepper = _p.Frame == FrameModel.Bishop || _eval.TargetDimension < Dimension;
+
+            if (_useFrameStepper)
+            {
+                _stepper = new LieGroupMidpointStepper();
+                _opts = IntegratorOptions.Default;
+            }
+        }
+
         public int Dimension => _p.N;
 
         public double Length => _p.Length;
 
-        public Sample Evaluate(double s) => _eval.Evaluate(_p, s);
+        public Sample Evaluate(double s)
+        {
+            s = System.Math.Clamp(s, 0.0, _p.Length);
+
+            // Fall back to frame stepper for RMF or if our evaluator is not suitable for
+            // solving in this spatial dimension
+            if (_useFrameStepper)
+            {
+                var P = (double[])_p.P0.Clone();
+                var R = (double[,])_p.R0.Clone();
+                double si = 0;
+                while (si < s) {
+                    double h = _opts!.SuggestStep(_p.Kappa.Eval, si, s);
+                    if (h <= 0) break;
+                    _stepper!.Step(ref P, ref R, _p.Kappa.Eval, si, h, _p.Frame);
+                    si += h;
+                }
+                double[] k = _p.Kappa.Eval(s);
+                return new Sample(P, R, s, k);
+            }
+
+            return _eval.Evaluate(_p, s);
+        }
         public double[] Position(double s) => Evaluate(s).P;
         public double[] Tangent(double s) => Evaluate(s).T;
 
@@ -76,10 +118,11 @@ namespace ArcFrame.Core.Geometry
 
         public static Clothoid From3D(Vec3d P, Vec3d T, Vec3d N, Vec3d B, double k0, double dk, double tau0, double dtau, double L, IEvaluator evaluator, FrameModel frame = FrameModel.Frenet)
         {
-            double[] p = [P.X, P.Y, P.Z];
-            double[] t = [T.X, T.Y, T.Z];
-            double[] n = [N.X, N.Y, N.Z];
-            double[] b = [B.X, B.Y, B.Z];
+            double[] p = new double[] { P.X, P.Y, P.Z };
+            double[] t = new double[] { T.X, T.Y, T.Z };
+            double[] n = new double[] { N.X, N.Y, N.Z };
+            double[] b = new double[] { B.X, B.Y, B.Z }
+            ;
             double[] k0v = { k0, tau0 };
             double[] dkv = { dk, dtau };
             LinearCurvatureLaw law = new LinearCurvatureLaw(k0v, dkv);
@@ -93,5 +136,7 @@ namespace ArcFrame.Core.Geometry
             LinearCurvatureLaw law = new LinearCurvatureLaw(k0v, dkv);
             return new Clothoid(new ClothoidCurveSpec(3, L, P0, R0, law, frame), evaluator);
         }
+
+//        public static Clothoid FitTo
     }
 }

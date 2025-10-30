@@ -2,6 +2,8 @@
 using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
 using ArcFrame.Solvers;
+using System;
+using System.Collections.Generic;
 
 namespace ArcFrame.Core.API
 {

@@ -1,6 +1,8 @@
 ﻿using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
+using System.Collections.Generic;
+using System;
 
 namespace ArcFrame.Core.Constraints
 {
@@ -22,7 +24,7 @@ namespace ArcFrame.Core.Constraints
     /// Composite constraint (can see several CurveSpecs at once).
     public interface ICompositeConstraint
     {
-        ConstraintType Type { get; }
+        public ConstraintType Type { get; }
         double Weight { get; }               // multiplies the whole residual block
         double[] Residual(IReadOnlyList<CurveSpec> specs);
         public void ShowInfo();
@@ -53,46 +55,79 @@ namespace ArcFrame.Core.Constraints
         }
     }
 
-    /// <summary>
-    /// "Hit this end pose" at s = L. Provide P (required) and optional T.
-    /// </summary>
-    public sealed class EndPoseConstraint : ICurveConstraint
-    {
-        public ConstraintType Type { get; init; } = ConstraintType.Hard;
-        public double[] TargetP { get; init; }
-        public double[]? TargetT { get; init; }
-        public double wP { get; init; } = 1.0;
-        public double wT { get; init; } = 1.0;
-        public int SegmentIndex { get; init; }
 
-        public EndPoseConstraint(int segmentIndex, double[] targetP, double[]? targetT = null, ConstraintType type = ConstraintType.Hard, double wp = 1.0, double wt = 1.0)
+
+    /// Position+tangent at s=0 for a segment (hard/soft).
+    public sealed class StartPoseConstraint : ICurveConstraint
+    {
+        public ConstraintType Type { get; } = ConstraintType.Hard;
+        public double Weight { get; } = 1.0;
+        public int SegmentIndex { get; }
+
+        public double[] TargetP { get; }
+        public double[] TargetT { get; }
+        public double wP { get; } = 1.0;
+        public double wT { get; } = 1.0;
+
+        public StartPoseConstraint(int segmentIndex, double[] targetP, double[] targetT,
+                                   ConstraintType type = ConstraintType.Hard, double weight = 1.0,
+                                   double wp = 1.0, double wt = 1.0)
         {
-            TargetP = (double[])targetP.Clone();
-            TargetT = targetT == null ? null : (double[])targetT.Clone();
-            Type = type;
-            wP = wp; wT = wt;
-            SegmentIndex = segmentIndex;
+            SegmentIndex = segmentIndex; TargetP = (double[])targetP.Clone(); TargetT = (double[])targetT.Clone();
+            Type = type; Weight = weight; wP = wp; wT = wt;
         }
 
         public double[] Residual(CurveSpec spec)
         {
-            var curve = new CachedIntrinsicCurve(spec);
-            var s = spec.Length;
-            var smp = curve.Evaluate(s);
-            var r = new List<double>(spec.N + (TargetT == null ? 0 : spec.N));
-            for (int i = 0; i < spec.N; i++)
-            {
-                r.Add(wP * (smp.P[i] - TargetP[i]));
-            }
-            if (TargetT != null)
-            {
-                var T = smp.T;
-                // Unit-length tangent; compare directly
-                for (int i = 0; i < spec.N; i++)
-                {
-                    r.Add(wT * (T[i] - TargetT[i]));
-                }
-            }
+            var cur = new CachedIntrinsicCurve(spec);
+            var smp = cur.Evaluate(0.0);
+            var r = new List<double>(spec.N * 2);
+            for (int i = 0; i < spec.N; i++) r.Add(wP * (smp.P[i] - TargetP[i]));
+            for (int i = 0; i < spec.N; i++) r.Add(wT * (smp.T[i] - TargetT[i]));
+            if (Weight != 1.0) for (int i = 0; i < r.Count; i++) r[i] *= Weight;
+            return r.ToArray();
+        }
+    }
+
+    /// <summary>
+    /// "Hit this end pose" at s = L. Provide P and T.
+    /// </summary>
+    public sealed class EndPoseConstraint : ICurveConstraint
+    {
+        public ConstraintType Type { get; } = ConstraintType.Hard;
+        public double[] TargetP { get; }
+        public double[] TargetT { get; }
+        public double wP { get; } = 1.0;
+        public double wT { get; } = 1.0;
+        public int SegmentIndex { get; }
+        public double Weight { get; }
+
+        public EndPoseConstraint(int segmentIndex, double[] targetP, double[] targetT,
+                                   ConstraintType type = ConstraintType.Hard, double weight = 1.0,
+                                   double wp = 1.0, double wt = 1.0)
+        {
+            TargetP = (double[])targetP.Clone();
+            TargetT = (double[])targetT.Clone();
+            Type = type;
+            wP = wp; wT = wt;
+            SegmentIndex = segmentIndex;
+            Weight = weight;
+        }
+
+        public double[] Residual(CurveSpec spec)
+        {
+            //Console.WriteLine("EndPoseConstraint");
+            var cur = spec.GetOptimizedCurve();
+            double l = spec.Length;
+            //Console.WriteLine($"Length: {l} | curve type: {cur.GetType()}");
+            var smp = cur.Evaluate(spec.Length);
+            //Console.WriteLine(spec.N);
+            //Helpers.PrintVector(smp.P);
+            //Helpers.PrintVector(TargetP);
+            var r = new List<double>(spec.N * 2);
+            for (int i = 0; i < spec.N; i++) r.Add(wP * (smp.P[i] - TargetP[i]));
+            for (int i = 0; i < spec.N; i++) r.Add(wT * (smp.T[i] - TargetT[i]));
+            if (Weight != 1.0) for (int i = 0; i < r.Count; i++) r[i] *= Weight;
             return r.ToArray();
         }
     }
@@ -102,13 +137,13 @@ namespace ArcFrame.Core.Constraints
     /// </summary>
     public sealed class PoseAtSConstraint : ICurveConstraint
     {
-        public ConstraintType Type { get; init; } = ConstraintType.Soft;
-        public double s { get; init; }
-        public double[]? TargetP { get; init; }
-        public double[]? TargetT { get; init; }
-        public double wP { get; init; } = 1.0;
-        public double wT { get; init; } = 1.0;
-        public int SegmentIndex { get; init; }
+        public ConstraintType Type { get; } = ConstraintType.Soft;
+        public double s { get; }
+        public double[]? TargetP { get; }
+        public double[]? TargetT { get; }
+        public double wP { get; } = 1.0;
+        public double wT { get; } = 1.0;
+        public int SegmentIndex { get; }
 
         public PoseAtSConstraint(int segmentIndex, double s, double[]? targetP = null, double[]? targetT = null, ConstraintType type = ConstraintType.Soft, double wp = 1.0, double wt = 1.0)
         {
@@ -145,15 +180,15 @@ namespace ArcFrame.Core.Constraints
     /// </summary>
     public sealed class PlaneConstraint : ICurveConstraint
     {
-        public ConstraintType Type { get; init; } = ConstraintType.Soft;
-        public double[] n { get; init; }
-        public double d { get; init; }
-        public bool OneSided { get; init; } = false; // if true, enforce n·P(s) >= d via hinge
-        public double s0 { get; init; } = 0;
-        public double s1 { get; init; } = double.NaN;
-        public int M { get; init; } = 9;
-        public double Weight { get; init; } = 1.0;
-        public int SegmentIndex { get; init; }
+        public ConstraintType Type { get; } = ConstraintType.Soft;
+        public double[] n { get; }
+        public double d { get; }
+        public bool OneSided { get; } = false; // if true, enforce n·P(s) >= d via hinge
+        public double s0 { get; } = 0;
+        public double s1 { get; } = double.NaN;
+        public int M { get; } = 9;
+        public double Weight { get; } = 1.0;
+        public int SegmentIndex { get; }
 
         public PlaneConstraint(int segmentIndex, double[] n, double d, bool oneSided = false, double s0 = 0, double s1 = double.NaN, int M = 9, ConstraintType type = ConstraintType.Soft, double weight = 1.0)
         {
@@ -192,13 +227,13 @@ namespace ArcFrame.Core.Constraints
     /// </summary>
     public sealed class CurvatureBoundConstraint : ICurveConstraint
     {
-        public ConstraintType Type { get; init; } = ConstraintType.Soft;
-        public double s0 { get; init; } = 0;
-        public double s1 { get; init; } = double.NaN;
-        public int M { get; init; } = 9;
-        public double kMax { get; init; } = 1.0;
-        public double Weight { get; init; } = 1.0;
-        public int SegmentIndex { get; init; }
+        public ConstraintType Type { get; } = ConstraintType.Soft;
+        public double s0 { get; } = 0;
+        public double s1 { get; } = double.NaN;
+        public int M { get; } = 9;
+        public double kMax { get; } = 1.0;
+        public double Weight { get; } = 1.0;
+        public int SegmentIndex { get; }
 
         public CurvatureBoundConstraint(int segmentIndex, double kMax, double s0 = 0, double s1 = double.NaN, int M = 9, double weight = 1.0)
         {
@@ -229,45 +264,13 @@ namespace ArcFrame.Core.Constraints
         }
     }
 
-    /// Position+tangent at s=0 for a segment (hard/soft).
-    public sealed class StartPoseConstraint : ICurveConstraint
-    {
-        public ConstraintType Type { get; init; } = ConstraintType.Hard;
-        public double Weight { get; init; } = 1.0;
-        public int SegmentIndex { get; init; }
-
-        public double[] TargetP { get; }
-        public double[] TargetT { get; }
-        public double wP { get; init; } = 1.0;
-        public double wT { get; init; } = 1.0;
-
-        public StartPoseConstraint(int segmentIndex, double[] targetP, double[] targetT,
-                                   ConstraintType type = ConstraintType.Hard, double weight = 1.0,
-                                   double wp = 1.0, double wt = 1.0)
-        {
-            SegmentIndex = segmentIndex; TargetP = (double[])targetP.Clone(); TargetT = (double[])targetT.Clone();
-            Type = type; Weight = weight; wP = wp; wT = wt;
-        }
-
-        public double[] Residual(CurveSpec spec)
-        {
-            var cur = new CachedIntrinsicCurve(spec);
-            var smp = cur.Evaluate(0.0);
-            var r = new List<double>(spec.N * 2);
-            for (int i = 0; i < spec.N; i++) r.Add(wP * (smp.P[i] - TargetP[i]));
-            for (int i = 0; i < spec.N; i++) r.Add(wT * (smp.T[i] - TargetT[i]));
-            if (Weight != 1.0) for (int i = 0; i < r.Count; i++) r[i] *= Weight;
-            return r.ToArray();
-        }
-    }
-
     /// Curvature value at s=0 or s=L for a segment.
     public sealed class CurvatureBoundaryConstraint : ICurveConstraint
     {
         public enum Where { Start, End }
-        public ConstraintType Type { get; init; } = ConstraintType.Hard;
-        public double Weight { get; init; } = 1.0;
-        public int SegmentIndex { get; init; }
+        public ConstraintType Type { get; } = ConstraintType.Hard;
+        public double Weight { get; } = 1.0;
+        public int SegmentIndex { get; }
 
         public Where Location { get; }
         public double TargetK { get; }
@@ -328,6 +331,29 @@ namespace ArcFrame.Core.Constraints
         public void ShowInfo()
         {
             Console.WriteLine("PositiveLengthPenalty");
+        }
+    }
+
+    /// <summary>
+    /// Enforce a small magnitude of the curvature vector [
+    /// </summary>
+    public sealed class CurvatureMagnitudeRegularizer : ICurveConstraint
+    {
+        public ConstraintType Type => ConstraintType.Soft;
+        public double Weight { get; }
+        public int SegmentIndex { get; }
+        public CurvatureMagnitudeRegularizer(int segIdx, double weight) { SegmentIndex = segIdx; Weight = weight; }
+        public double[] Residual(CurveSpec spec)
+        {
+            var p = (spec.Kappa as IParamCurvatureLaw)?.GetParams(); // [k0, τ0, ..., dk, dτ, ...]
+            if (p == null) return new[] { 0.0 };
+            double mag = Helpers.Len(p);
+            return new[] { Weight * mag };
+        }
+
+        public void ShowInfo()
+        {
+            Console.WriteLine("CurvatureMagnitudeRegularizer");
         }
     }
 }

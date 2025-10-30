@@ -1,5 +1,8 @@
 ﻿using ArcFrame.Core.Math;
+using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
+using System;
+using System.Collections.Generic;
 
 namespace ArcFrame.Core.Geometry
 {
@@ -10,7 +13,7 @@ namespace ArcFrame.Core.Geometry
     public class CompositeCurve : IArcLengthCurve
     {
         public int Count => _segs.Count;
-        private List<IArcLengthCurve> _segs = [];
+        private List<IArcLengthCurve> _segs = new List<IArcLengthCurve>();
         //the dimension of the curve, enforced across segments
         private int? _n;
         //total length of the curve
@@ -19,7 +22,7 @@ namespace ArcFrame.Core.Geometry
         /// Arc length up to the start of the ith index.
         /// _prefix[0] = 0;
         /// </summary>
-        private double[] _prefix = [];
+        private double[] _prefix = { };
         //call EnsurePrefix if true
         private bool _dirty = true;
         public int Dimension
@@ -61,7 +64,7 @@ namespace ArcFrame.Core.Geometry
             //Console.WriteLine("Eval composite curve");
             EnsurePrefix();
             //Console.WriteLine("Ensure prefix composite curve");
-            if (_segs.Count() == 0)
+            if (_segs.Count == 0)
             {
                 //Console.WriteLine("Seg count is 0");
                 double[,] R = new double[1, 1];
@@ -260,6 +263,16 @@ namespace ArcFrame.Core.Geometry
             Helpers.AddOuterScaled(R, u1, u2, s);
 
             return R;
+        }
+
+        public static CompositeCurve FromSpecList(CurveSpec[] specs)
+        {
+            CompositeCurve c = new CompositeCurve();
+            for (int i = 0; i < specs.Length; i++)
+            {
+                c.AddG1(specs[i].GetOptimizedCurve(), out _);
+            }
+            return c;
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
+using System.Collections.Generic;
+using System;
 
 namespace ArcFrame.Core.Constraints
 {
@@ -160,17 +162,17 @@ namespace ArcFrame.Core.Constraints
     /// </summary>
     public sealed class CompositeCurveJointConstraint : ICompositeConstraint
     {
-        public ConstraintType Type { get; init; } = ConstraintType.Hard;
-        public double Weight { get; init; } = 1.0;
+        public ConstraintType Type { get; } = ConstraintType.Hard;
+        public double Weight { get; } = 1.0;
 
         public int LeftIndex { get; }     // segment i
         public int RightIndex { get; }    // segment i+1
-        public bool C0 { get; init; } = true;
-        public bool C1 { get; init; } = true;
-        public bool C2 { get; init; } = false;
-        public double wC0 { get; init; } = 1.0;
-        public double wC1 { get; init; } = 1.0;
-        public double wC2 { get; init; } = 1.0;
+        public bool C0 { get; } = true;
+        public bool C1 { get; } = true;
+        public bool C2 { get; } = false;
+        public double wC0 { get; } = 1.0;
+        public double wC1 { get; } = 1.0;
+        public double wC2 { get; } = 1.0;
 
         public CompositeCurveJointConstraint(int leftIndex, int rightIndex, bool c0 = true, bool c1 = true, bool c2 = false, ConstraintType type = ConstraintType.Hard, double weight = 1.0, double wC0 = 1.0, double wC1 = 1.0, double wC2 = 1.0)
         {
@@ -408,8 +410,9 @@ namespace ArcFrame.Core.Constraints
 
                 // Find the closest point around from P to the search window in _left
                 // In the window around index _hintL. Update _hintL so it doesn't fall
-                // Behind out of a favorable search window. 
-                (_hintL, _, var pos_l, var r_l) = _left.Project(P, _hintL, _searchWin);
+                // Behind out of a favorable search window.
+                var (hint, _, pos_l, r_l) = _left.Project(P, _hintL, _searchWin);
+                _hintL = hint;
                 // (P - pos_l) • nor_l => >0 it is on the inside (same direction), <0 on the outside
                 double[] n = Helpers.Multiply(ONFrame.GetCol(r_l, 1), _flipL);
                 pos_l = Helpers.Add(pos_l, Helpers.Multiply(n, _buffer));
@@ -419,7 +422,8 @@ namespace ArcFrame.Core.Constraints
                 //double dL = (dxL * nor_l[0] + dyL * nor_l[1]) * _flipL;
 
                 // Signed distance to right (inward normal)
-                (_hintR, _, var pos_r, var r_r) = _right.Project(P, _hintR, _searchWin);
+                var (hint2, _, pos_r, r_r) = _right.Project(P, _hintR, _searchWin);
+                _hintR = hint2;
                 n = Helpers.Multiply(ONFrame.GetCol(r_r, 1), _flipR);
                 pos_r = Helpers.Add(pos_r, Helpers.Multiply(n, _buffer));
                 double dR = Helpers.Dot(Helpers.Subtract(P, pos_r), n);
@@ -452,7 +456,8 @@ namespace ArcFrame.Core.Constraints
                 double u = _left.Length * (i + 0.5) / 5.0;
                 var (p_l, frame) = SampleOn(_left, u);
                 double[] nor = ONFrame.GetCol(frame, 1);
-                (idx, _, double[] p_r, _) = _right.Project(p_l, idx, _searchWin);
+                var (idx2, _, p_r, _) = _right.Project(p_l, idx, _searchWin);
+                idx = idx2;
                 double[] dv = Helpers.Subtract(p_r, p_l);
                 double dot = Helpers.Dot(dv, nor);
                 /*Console.WriteLine($"p_right - p_left: ");
@@ -470,7 +475,8 @@ namespace ArcFrame.Core.Constraints
                 double u = _right.Length * (i + 0.5) / 5.0;
                 var (pos, frame) = SampleOn(_right, u);
                 double[] nor = ONFrame.GetCol(frame, 1);
-                (idx, _, double[] p, _) = _left.Project(pos, idx, _searchWin);
+                var (idx2, _, p, _) = _left.Project(pos, idx, _searchWin);
+                idx = idx2;
                 double[] dv = Helpers.Subtract(p, pos);
                 if (Helpers.Dot(dv, nor) < 0) { _flipR = -1; break; }
             }

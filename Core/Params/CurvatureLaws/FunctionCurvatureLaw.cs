@@ -1,4 +1,6 @@
-﻿namespace ArcFrame.Core.Params
+﻿using System;
+
+namespace ArcFrame.Core.Params
 {
     /// <summary>
     /// Curvature law where the generalized curvatures follow some function.

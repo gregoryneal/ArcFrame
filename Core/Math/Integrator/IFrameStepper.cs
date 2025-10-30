@@ -1,4 +1,6 @@
-﻿namespace ArcFrame.Core.Math
+﻿using System;
+
+namespace ArcFrame.Core.Math
 {
     public interface IFrameStepper
     {

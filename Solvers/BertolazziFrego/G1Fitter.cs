@@ -1,5 +1,7 @@
 ﻿using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
+using System;
+
 
 namespace ArcFrame.Solvers.BertolazziFrego
 {
@@ -36,8 +38,8 @@ namespace ArcFrame.Solvers.BertolazziFrego
             double phi0 = NormalizeAngle(t0 - phi);
             double phi1 = NormalizeAngle(t1 - phi);
 
-            double[] a = [x0, y0];
-            double[] b = [x1, y1];
+            double[] a = { x0, y0 };
+            double[] b = { x1, y1 };
             double[] T;
             double[,] R0;
 
@@ -46,7 +48,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
 
                 T = Helpers.Normalize(Helpers.Subtract(b, a));
                 R0 = ONFrame.R0_FromT_Complete(T);
-                return new CurveSpec(2, r, a, R0, new ConstantCurvatureLaw([0]), Frame);
+                return new CurveSpec(2, r, a, R0, new ConstantCurvatureLaw(new double[]{ 0 }), Frame);
             }
 
             double d = phi1 - phi0;
@@ -98,9 +100,9 @@ namespace ArcFrame.Solvers.BertolazziFrego
             double startCurvature = (d - A) / s;
             double sharpness = 2 * A / (s * s);
             double t = ((sharpness * s * s) / 2) + (startCurvature * s) + t0;
-            T = [Math.Cos(t0), Math.Sin(t0)];
+            T = new double[] { Math.Cos(t0), Math.Sin(t0) };
             R0 = ONFrame.R0_FromT_Complete(T);
-            return new ClothoidCurveSpec(2, s, a, R0, new LinearCurvatureLaw([startCurvature], [sharpness]), Frame);
+            return new ClothoidCurveSpec(2, s, a, R0, new LinearCurvatureLaw(new double[] { startCurvature }, new double[] { sharpness }), Frame);
         }
 
         /// <summary>

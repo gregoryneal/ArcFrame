@@ -1,4 +1,6 @@
-﻿namespace ArcFrame.Core.Math
+﻿using System;
+
+namespace ArcFrame.Core.Math
 {
     /// <summary>
     /// Holds rigid transformation data to be applied on a vector.

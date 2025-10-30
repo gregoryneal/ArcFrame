@@ -1,7 +1,8 @@
-﻿using ArcFrame.Core.Constraints;
-using ArcFrame.Core.Geometry;
+﻿using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Geometry.Splines;
 using ArcFrame.Core.Results;
+using System.Collections.Generic;
+
 
 namespace ArcFrame.Core.Math.Geometry.Splines
 {

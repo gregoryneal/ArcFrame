@@ -1,4 +1,5 @@
-﻿
+﻿using System;
+
 namespace ArcFrame.Core.Math.Geometry.Splines
 {
     /// <summary>

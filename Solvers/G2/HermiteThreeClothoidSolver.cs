@@ -3,6 +3,7 @@ using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
 using ArcFrame.Solvers.BertolazziFrego;
+using System;
 
 namespace ArcFrame.Solvers.G2
 {
@@ -19,9 +20,22 @@ namespace ArcFrame.Solvers.G2
     ///  - Joint C0/C1/C2 between (seg0,seg1) and (seg1,seg2)   [hard]
     /// Optionally add mild regularizers on slopes/lengths to pick a unique solution.
     /// </summary>
-    public sealed class HermiteThreeClothoidSolver
+    public class HermiteThreeClothoidSolver
     {
-        public sealed record Result(CurveSpec[] Segments, CompositeCurve Composite, bool Converged, int Iterations);
+        public class Result
+        {
+            public readonly CurveSpec[] Segments;
+            public readonly CompositeCurve Composite;
+            public readonly bool Converged;
+            public readonly int Iterations;
+            public Result(CurveSpec[] segments, CompositeCurve composite, bool converged, int iterations)
+            {
+                Segments = segments;
+                Composite = composite;
+                Converged = converged;
+                Iterations = iterations;
+            }
+        }
 
         public Result Solve(
             double[] P0, double theta0, double k0,
@@ -89,7 +103,7 @@ namespace ArcFrame.Solvers.G2
             comp.AddG1(new IntrinsicCurve(specs[2]), out _);
             */
 
-            return new Result(specs, comp, Converged: true, Iterations: maxIter);
+            return new Result(specs, comp, true, maxIter);
         }
 
         // ------------------ seed builder ------------------

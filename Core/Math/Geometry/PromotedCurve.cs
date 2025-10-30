@@ -1,4 +1,5 @@
 ﻿using ArcFrame.Core.Results;
+using System;
 
 namespace ArcFrame.Core.Geometry
 {

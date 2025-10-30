@@ -2,6 +2,8 @@
 using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
+using System;
+using System.Linq;
 
 namespace ArcFrame.Examples
 {
@@ -15,12 +17,12 @@ namespace ArcFrame.Examples
             // 3d curve
             int dimension = 3;
             double arcLength = 5.2;
-            double[] p0 = [0, 0, 0];
+            double[] p0 = { 0, 0, 0 };
             // Build an orthonormal basis frame by rotating the XZ plane by 60deg about the Y axis.
             // does the same as rotating the curve by 60 deg along the Y axis.
             double[,] R0 = RigidTransform.FromYawXZ(dimension, Math.PI / 3, p0[0], p0[2]).R;
 
-            FunctionCurvatureLaw law = new FunctionCurvatureLaw(dimension - 1, s => [s + 2, 2 / s]); //k = s + 2, tau = 2 / s
+            FunctionCurvatureLaw law = new FunctionCurvatureLaw(dimension - 1, s => new double[] { s + 2, 2 / s }); //k = s + 2, tau = 2 / s
             CurveSpec spec = new CurveSpec(dimension, arcLength, p0, R0, law, FrameModel.Bishop);
             // Normally you might use a CachedIntrinsicCurve, as it does fewer computations when sampling.
             IntrinsicCurve curve = new IntrinsicCurve(spec);

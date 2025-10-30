@@ -1,8 +1,18 @@
-﻿namespace ArcFrame.Core.Params.CurvatureLaws
+﻿using ArcFrame.Core.Math;
+using System;
+
+namespace ArcFrame.Core.Params.CurvatureLaws
 {
     public static class CurvatureLawExtensions
     {
         /// Returns a jet up to `order` (>=0). outJet[o][j] = d^o κ_j(s)/ds^o.
+        /// <summary>
+        /// Returns a jet up to `order` (>=0). outJet[o][j] = d^o κ_j(s)/ds^o.
+        /// </summary>
+        /// <param name="law"></param>
+        /// <param name="s"></param>
+        /// <param name="order"></param>
+        /// <returns></returns>
         public static double[][] EvalJet(this ICurvatureLaw law, double s, int order = 1)
         {
             if (order < 0) order = 0;
@@ -121,6 +131,63 @@
                     jet[2][j] = (-fp2[j] + 16 * fp1[j] - 30 * jet[0][j] + 16 * fm1[j] - fm2[j]) / (12 * h * h);
             return jet;
         }
-    }
 
+        /// <summary>
+        /// Convert a Frenet ICurvatureLaw (k1,k2,...,k_{N-1}) into a Bishop/RMF FunctionCurvatureLaw u(s).
+        /// Assumes s is queried monotonically nondecreasing.
+        /// </summary>
+        public static FunctionCurvatureLaw FromFrenetToBishopFunction(
+            this ICurvatureLaw frenetLaw,  // returns [k1, k2, ..., k_{N-1}]
+            double s0 = 0.0,
+            double[,]? Q0 = null,     // optional initial normal rotation (SO(N-1)); null => Identity
+            double maxStep = 0.05)    // should be ≤ your IntegratorOptions.MaxStep
+        {
+            int N = frenetLaw.Order + 1;
+            int m = N - 1; // normal-space size
+            if (m <= 0) throw new ArgumentException("N must be ≥ 2.");
+
+            // normal rotation state Q(s) in SO(m)
+            double[,] Q = Q0 ?? RigidTransform.Identity(m).R;
+            double sLast = s0;
+
+            // pre-allocate scratch
+            double[] k = new double[m];     // holds kappa[0..m-1]
+            double[,] Omega = new double[m, m];
+
+            return new FunctionCurvatureLaw(m, s =>
+            {
+                // advance Q from sLast to s with Lie midpoint on SO(m)
+                if (s < sLast - 1e-12)
+                {
+                    // if someone goes backwards, restart from s0
+                    Q = Q0 ?? RigidTransform.Identity(m).R;
+                    sLast = s0;
+                }
+
+                while (sLast < s - 1e-16)
+                {
+                    double h = System.Math.Min(maxStep, s - sLast);
+                    double smid = sLast + 0.5 * h;
+
+                    var kMid = frenetLaw.Eval(smid); // [k1,k2,...]
+                    Omega = ONFrame.ExtractNormalBlock(ONFrame.BuildFrenetSkew(kMid)); // Ω_F from torsions (k2..)
+
+                    // Q <- exp(Ω_F * -h) * Q 
+                    var E = MatrixExp.ExpSkew(Omega, -h);
+                    Q = Helpers.Multiply(E, Q);
+
+                    sLast += h;
+                }
+
+                // Now emit u(s) = k1(s) * Q^T e1  (size m)
+                var kNow = frenetLaw.Eval(s);
+                double k1 = kNow[0];
+                var u = new double[m];
+
+                // v = Q^T e1  ⇒ v_i = Q_{0,i} (first row of Q)
+                for (int i = 0; i < m; i++) u[i] = k1 * Q[0, i];
+                return u;
+            });
+        }
+    }
 }

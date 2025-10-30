@@ -1,4 +1,6 @@
-﻿namespace ArcFrame.Core.Math.Geometry.Splines
+﻿using System;
+
+namespace ArcFrame.Core.Math.Geometry.Splines
 {
     /// <summary>
     /// Create a Cubic Bezier curve out of control points.

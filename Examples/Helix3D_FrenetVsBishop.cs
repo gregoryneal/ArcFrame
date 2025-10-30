@@ -2,6 +2,7 @@
 using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
+using System.Linq;
 
 namespace ArcFrame.Examples
 {
@@ -26,18 +27,18 @@ namespace ArcFrame.Examples
             double tau = pitch / (radius * radius + pitch * pitch);
             double L = 40.0;
 
-            ConstantCurvatureLaw fsLaw = new ConstantCurvatureLaw([kappa, tau]);
+            ConstantCurvatureLaw fsLaw = new ConstantCurvatureLaw(new double[] { kappa, tau });
             CurveSpec specFS = new CurveSpec(3, L, P0, R0, fsLaw, FrameModel.Frenet);
             CachedIntrinsicCurve helixFS = new CachedIntrinsicCurve(specFS);
 
             //the normal vector doesn't spin around the tangent vector so the curvatures have to.
-            FunctionCurvatureLaw bsLaw = new FunctionCurvatureLaw(2, s => [kappa * System.Math.Cos(tau * s), kappa * System.Math.Sin(tau * s)]);
+            FunctionCurvatureLaw bsLaw = new FunctionCurvatureLaw(2, s => new double[] { kappa* System.Math.Cos(tau * s), kappa* System.Math.Sin(tau * s)});
             CurveSpec specB = new CurveSpec(3, L, P0, R0, bsLaw, FrameModel.Bishop);
             CachedIntrinsicCurve helixBS = new CachedIntrinsicCurve(specB);
 
             //plot these samples
-            double[][] samplesFS = helixFS.GetSamples(100).Select<Sample, double[]>(s => s.P).ToArray(); // [ [p0x, p0y,..], [p1x, p1y, ...], ...]
-            double[][] samplesBS = helixBS.GetSamples(100).Select<Sample, double[]>(s => s.P).ToArray();
+            double[][] samplesFS = helixFS.GetSamples(100).Select(s => s.P).ToArray(); // [ [p0x, p0y,..], [p1x, p1y, ...], ...]
+            double[][] samplesBS = helixBS.GetSamples(100).Select(s => s.P).ToArray();
         }
     }
 }

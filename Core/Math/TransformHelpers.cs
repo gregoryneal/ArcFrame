@@ -1,5 +1,7 @@
 ﻿using ArcFrame.Core.Geometry;
 
+using System;
+
 namespace ArcFrame.Core.Math
 {
     /// <summary>

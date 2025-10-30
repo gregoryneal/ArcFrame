@@ -1,4 +1,7 @@
-﻿namespace ArcFrame.Core.Math
+﻿using System;
+using System.Collections.Generic;
+
+namespace ArcFrame.Core.Math
 {
     /// <summary>
     /// Type of frame model, in the Frenet case, the frame evolves as a function of curvature. In the degenerate case of 0 curvature it gets all wonky.
@@ -247,13 +250,27 @@
             var A = new double[N, N]; // zeros
                                       // Couple T (col 0) with normal columns via k components; keep normal plane rotation 0.
                                       // A_{0,j} = -k_{j-1}, A_{j,0} = k_{j-1} for j=1..N-1
+            for (int j = 1; j < N; j++) 
+            { 
+                A[0, j] = -k[j - 1]; 
+                A[j, 0] = k[j - 1]; 
+            }
+            return A;
+        }
+        /*
+        public static double[,] BuildBishopSkew(double[] k)
+        {
+            int N = k.Length + 1;
+            var A = new double[N, N]; // zeros
+                                      // Couple T (col 0) with normal columns via k components; keep normal plane rotation 0.
+                                      // A_{0,j} = -k_{j-1}, A_{j,0} = k_{j-1} for j=1..N-1
             for (int j = 1; j < N; j++)
             {
                 A[0, j] = -k[j - 1];
                 A[j, 0] = k[j - 1];
             }
             return A;
-        }
+        }*/
 
         //helpers
         public static double[] GetCol(double[,] M, int j)
@@ -292,7 +309,7 @@
         /// <param name="E"></param>
         /// <param name="tol"></param>
         /// <exception cref="ArgumentException"></exception>
-        public static void ValidateONColumns(double[,] E, double tol)
+        internal static void ValidateONColumns(double[,] E, double tol)
         {
             int n = E.GetLength(0), d = E.GetLength(1);
             // Check E^T E ≈ I_d
@@ -312,6 +329,21 @@
                             throw new ArgumentException("E columns are not orthogonal.");
                     }
                 }
+        }
+
+        internal static double[,] ExtractNormalBlock(double[,] aF)
+        {
+            int n = aF.GetLength(0) - 1;
+            int m = aF.GetLength(1) - 1;
+            double[,] a = new double[n, m];
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < m; j++)
+                {
+                    a[i, j] = aF[i + 1, j + 1];
+                }
+            }
+            return a;
         }
     }
 }

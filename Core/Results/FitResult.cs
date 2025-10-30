@@ -5,24 +5,24 @@ namespace ArcFrame.Core.Results
     /// <summary>
     /// Class to transfer fitting results from an IFitter implementation.
     /// </summary>
-    /// <typeparam name="TCurve">An arc length parameterized curve that was fitted to the data</typeparam>
-    public sealed class FitResult<TCurve> where TCurve : IArcLengthCurve
+    /// <typeparam name="IArcLengthCurve">An arc length parameterized curve that was fitted to the data</typeparam>
+    public sealed class FitResult<IArcLengthCurve>
     {
-        public bool Ok { get; private set; }
-        public string? Error { get; private set; }
-        public TCurve? Curve { get; private set; }
+        public bool Ok { get; private set; } = false;
+        public string? Error { get; private set; } = "";
+        public IArcLengthCurve Curve { get; private set; }
 
-        public static FitResult<TCurve> Success(TCurve c)
+        public static FitResult<IArcLengthCurve> Success(IArcLengthCurve c)
         {
-            var r = new FitResult<TCurve>();
+            var r = new FitResult<IArcLengthCurve>();
             r.Ok = true;
             r.Curve = c;
             r.Error = null;
             return r;
         }
-        public static FitResult<TCurve> Fail(string message)
+        public static FitResult<IArcLengthCurve> Fail(string message)
         {
-            var r = new FitResult<TCurve>();
+            var r = new FitResult<IArcLengthCurve>();
             r.Ok = false;
             r.Curve = default;
             r.Error = message;

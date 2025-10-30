@@ -1,4 +1,6 @@
-﻿namespace ArcFrame.Core.Math
+﻿using System;
+
+namespace ArcFrame.Core.Math
 {
     /// <summary>
     /// Linear algebra helper classes
@@ -162,6 +164,44 @@
             // Solve for all columns (in place): result overwrites I
             LUSolveInPlace(LU, piv, I);
             return I;
+        }
+
+        /// <summary>
+        /// For an NxM matrix A and a IxJ matrix B
+        /// return an NIxMJ matrix. Look up wiki
+        /// for specifics.
+        /// </summary>
+        /// <param name="A"></param>
+        /// <param name="B"></param>
+        /// <returns></returns>
+        public static double[,] KroneckerProduct(double[,] A, double[,] B)
+        {
+            int rowsA = A.GetLength(0);
+            int colsA = A.GetLength(1);
+            int rowsB = B.GetLength(0);
+            int colsB = B.GetLength(1);
+
+            // Determine the dimensions of the resulting matrix C
+            int rowsC = rowsA * rowsB;
+            int colsC = colsA * colsB;
+            double[,] C = new double[rowsC, colsC];
+
+            // Iterate through each element of matrix A
+            for (int i = 0; i < rowsA; i++)
+            {
+                for (int j = 0; j < colsA; j++)
+                {
+                    // Multiply the current element of A by the entire matrix B
+                    for (int k = 0; k < rowsB; k++)
+                    {
+                        for (int l = 0; l < colsB; l++)
+                        {
+                            C[i * rowsB + k, j * colsB + l] = A[i, j] * B[k, l];
+                        }
+                    }
+                }
+            }
+            return C;
         }
 
         // --- helpers ---

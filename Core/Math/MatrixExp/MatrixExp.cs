@@ -1,4 +1,6 @@
-﻿namespace ArcFrame.Core.Math
+﻿using System;
+
+namespace ArcFrame.Core.Math
 {
     /// <summary>
     /// Matrix exponential helpers to solve exp(X) where X is a matrix

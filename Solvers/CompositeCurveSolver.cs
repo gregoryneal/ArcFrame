@@ -1,8 +1,10 @@
 ﻿using ArcFrame.Core.Constraints;
 using ArcFrame.Core.Math;
-using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Params;
-using ArcFrame.Core.Results;
+using System.Collections.Generic;
+using System;
+using System.IO.Compression;
+using ArcFrame.Solvers.Core;
 
 namespace ArcFrame.Solvers
 {
@@ -15,8 +17,12 @@ namespace ArcFrame.Solvers
         /// The seed specs, these will be altered to fit the constraints
         /// </summary>
         public CurveSpec[] Seeds { get; }
-        public List<ICompositeConstraint> Constraints { get; } = new();
-        public CompositeCurveProblem(CurveSpec[] seeds) { Seeds = seeds; }
+        public List<ICompositeConstraint> Constraints { get; }
+        public CompositeCurveProblem(CurveSpec[] seeds) 
+        {
+            Constraints = new List<ICompositeConstraint>();
+            Seeds = seeds; 
+        }
 
         /// <summary>
         /// Wrap a single curve constraint in a SegmentConstraintWrapper for ICompositeConstraint
@@ -28,12 +34,12 @@ namespace ArcFrame.Solvers
 
     public sealed class CompositeCurveSolverResult
     {
-        public required CurveSpec[][] TrialSolutions { get; set; }
-        public required CurveSpec[] FinalSolution { get; set; }
-        public required bool Solved { get; set; }
-        public required string Message { get; set; }
-        public required int Iterations { get; set; }
-        public required double FinalCost { get; set; }
+        public CurveSpec[][] TrialSolutions { get; set; }
+        public CurveSpec[] FinalSolution { get; set; }
+        public bool Solved { get; set; }
+        public string Message { get; set; }
+        public int Iterations { get; set; }
+        public double FinalCost { get; set; }
     }
 
     /// <summary>
@@ -53,10 +59,7 @@ namespace ArcFrame.Solvers
         /// </summary>
         public double RelTol { get; set; } = 1e-6;
 
-        /// <summary>
-        /// TODO: Right now the algorithm is implemented incorrectly, it updates the cost
-        /// no matter what and allows divergence....
-        /// 
+        /// <summary>        /// 
         /// LMA: Pn+1 = Pn - ((hessian(Residual) + lambda(I))^-1)gradient(Residual)
         /// Where: Pn is the position vector at index n.
         /// Hessian(Residual) is the matrix of second partial derivates of the residual vector.
@@ -65,9 +68,9 @@ namespace ArcFrame.Solvers
         /// Gradient(Residual) is the matrix of first order partial derivatives of the residual vector.
         /// </summary>
         /// <param name="problem"></param>
-        /// <param name="optimizeP0"></param>
-        /// <param name="optimizeLength"></param>
-        /// <param name="optimizeR0"></param>
+        /// <param name="optimizeP0">Include the initial position in the parameter vector.</param>
+        /// <param name="optimizeLength">Include the length of each CurveSpec in the parameter vector.</param>
+        /// <param name="optimizeR0">Include the R0 matrix in the parameter vector.</param>
         /// <returns></returns>
         public CompositeCurveSolverResult Solve(CompositeCurveProblem problem, bool optimizeP0 = true, bool optimizeLength = true, bool optimizeR0 = true)
         {
@@ -86,14 +89,16 @@ namespace ArcFrame.Solvers
             double lambdaFactor = 10;
 
             CurveSpec[] specs = problem.Seeds;
-
+            IterationContext ctx;
             for (int i = 0; i < MaxIter; i++)
             {
                 specs = pack.Unpack(currentParameters);
+
                 //Console.WriteLine();
                 //Console.WriteLine($"==================== New Iteration: {i} ====================");
                 // Calculate current residuals jacobian and hessian approximation
-                (currentResiduals, double[,] Jacobian) = BuildResidualsAndJacobian(specs, currentParameters, problem.Constraints, pack);
+
+                double[,] Jacobian = BuildResidualsAndJacobian(specs, currentParameters, problem.Constraints, pack, out currentResiduals);
                 //Helpers.PrintVector(currentResiduals);
                 //Helpers.PrintMat(Jacobian);
                 var JT = Helpers.Transpose(Jacobian);
@@ -121,7 +126,7 @@ namespace ArcFrame.Solvers
                 {
                     return new CompositeCurveSolverResult
                     {
-                        TrialSolutions = [specs],
+                        TrialSolutions = new CurveSpec[][] { specs },
                         FinalSolution = specs,
                         Solved = false,
                         Message = "Solution did not converge, matrix not factorizable.",
@@ -129,7 +134,7 @@ namespace ArcFrame.Solvers
                         Iterations = i
                     };
                 }
-                //Console.Write($"try solve for dP: ");
+                //Console.WriteLine($"try solve for dP: ");
                 //Helpers.PrintVector(dP);
                 //Console.Write("Current parameters: ");
                 //Helpers.PrintVector(currentParameters);
@@ -137,7 +142,7 @@ namespace ArcFrame.Solvers
 
                 // Calculate new parameters and new cost
                 double[] newParameters = Helpers.Add(currentParameters, dP);
-                //Console.Write("New parameters: ");
+                //Console.WriteLine("New parameters: ");
                 //Helpers.PrintVector(newParameters);
                 //Console.WriteLine();
                 specs = pack.Unpack(newParameters);
@@ -149,9 +154,9 @@ namespace ArcFrame.Solvers
                     Console.WriteLine();
                 }*/
                 double[] newResiduals = BuildResidualOnly(specs, problem.Constraints);
-                /*Console.Write("New residuals: ");
-                Helpers.PrintVector(newResiduals);
-                Console.WriteLine();*/
+                //Console.WriteLine("New residuals: ");
+                //Helpers.PrintVector(newResiduals);
+                //Console.WriteLine();
                 double newCost = Helpers.Dot(newResiduals, newResiduals);
                 //Console.WriteLine($"Calculate new parameters and new cost: {newCost}");
 
@@ -189,7 +194,7 @@ namespace ArcFrame.Solvers
             //Console.WriteLine();
             return new CompositeCurveSolverResult
             {
-                TrialSolutions = [.. trialSolutions],
+                TrialSolutions = trialSolutions.ToArray(),
                 FinalSolution = specs,
                 FinalCost = currentCost,
                 Iterations = MaxIter,
@@ -198,12 +203,12 @@ namespace ArcFrame.Solvers
             };
         }
 
-        private (double[] r, double[,] J) BuildResidualsAndJacobian(IReadOnlyList<CurveSpec> specs, double[] currenParams,
-                                                                    List<ICompositeConstraint> constraints, Pack pack)
+        private double[,] BuildResidualsAndJacobian(IReadOnlyList<CurveSpec> specs, double[] currenParams,
+                                                                    List<ICompositeConstraint> constraints, Pack pack, out double[] residuals)
         {
             // Residual at the current constraints
-            var r = BuildResidualOnly(specs, constraints);
-            int m = r.Length, p = currenParams.Length;
+            residuals = BuildResidualOnly(specs, constraints);
+            int m = residuals.Length, p = currenParams.Length;
             var J = new double[m, p];
             // For each parameter add +h and calculate the FD derivative at i,j
             for (int j = 0; j < p; j++)
@@ -217,17 +222,17 @@ namespace ArcFrame.Solvers
                 int i = 0;
                 try
                 {
-                    for (i = 0; i < m; i++) J[i, j] = (r_h[i] - r[i]) / h;
+                    for (i = 0; i < m; i++) J[i, j] = (r_h[i] - residuals[i]) / h;
                 } catch (Exception e)
                 {
                     Console.WriteLine($"i, j => {i}, {j}");
                     Console.WriteLine($"J rows/cols => {m}/{p}");
-                    Console.WriteLine($"len(r)/len(r_h) => {r.Length}/{r_h.Length}");
+                    Console.WriteLine($"len(r)/len(r_h) => {residuals.Length}/{r_h.Length}");
                     Console.WriteLine($"len(params)/len(params_h) => {p}/{params_h.Length}");
                     Console.WriteLine(e.Message);
                 }
             }
-            return (r, J);
+            return J;
         }
 
         private double[] BuildResidualOnly(IReadOnlyList<CurveSpec> specs, List<ICompositeConstraint> constraints)
@@ -238,7 +243,7 @@ namespace ArcFrame.Solvers
                 //Console.WriteLine($"Building Residual for: ");
                 //c.ShowInfo();
                 var res = c.Residual(specs);
-                //Console.WriteLine("Build residual only residual");
+                //Console.WriteLine("Built residual only residual");
                 double w = (c.Type == ConstraintType.Hard ? HardWeight : 1.0);
                 if (c.Weight != 1.0) w *= c.Weight;
                 if (w != 1.0) for (int i = 0; i < res.Length; i++) res[i] *= w;
@@ -261,17 +266,29 @@ namespace ArcFrame.Solvers
             private readonly IParamCurvatureLaw?[] _laws;
             private readonly int[] _pCounts;     // per-seg parameter counts
             private readonly int _totalP;
+            private readonly int _totalL;
+
+            public readonly int[] LengthIndices; // indices in the parameter vector that correspond with
+                                                  // the length parameters of the individual curve specs
+                                                  // keep this in case we want to limit length increases
+                                                  // per step in the LMA loop.
 
             public Pack(CurveSpec[] seeds, bool optP0, bool optL, bool optR0)
             {
                 _seed = seeds;
                 _numSeg = seeds.Length;
                 _N = seeds[0].N; // assume consistent N across segments
-                _optP0 = optP0; _optL = optL; _optR0 = optR0;
-
+                _optP0 = optP0; 
+                _optL = optL;
+                _optR0 = optR0;
+                // the segment laws
                 _laws = new IParamCurvatureLaw?[_numSeg];
+                // number of parameters in each segment
                 _pCounts = new int[_numSeg];
+                // total parameter count
                 int total = 0;
+                // total length parameter count
+                int totalLIndices = 0;
                 for (int s = 0; s < _numSeg; s++)
                 {
                     var law = seeds[s].Kappa as IParamCurvatureLaw;
@@ -279,7 +296,11 @@ namespace ArcFrame.Solvers
 
                     int cnt = 0;
                     if (_optP0) cnt += _N;
-                    if (_optL) cnt += 1;
+                    if (_optL)
+                    {
+                        cnt += 1;
+                        totalLIndices++;
+                    }
                     if (_optR0) cnt += SOParam.ParamCount(_N);
                     if (law != null) cnt += law.GetParams().Length;
 
@@ -287,6 +308,9 @@ namespace ArcFrame.Solvers
                     total += cnt;
                 }
                 _totalP = total;
+                _totalL = totalLIndices;
+
+                LengthIndices = new int[_totalL];
             }
 
             /// <summary>
@@ -302,12 +326,18 @@ namespace ArcFrame.Solvers
                 // current index in the parameter array
                 // new parameters will go at this index.
                 int k = 0;
+                int l = 0;
                 for (int s = 0; s < _numSeg; s++)
                 {
                     var spec = specs[s];
                     if (_optP0) { Array.Copy(spec.P0, 0, parameters, k, _N); k += _N; }
-                    if (_optL) 
-                    { 
+                    if (_optL)
+                    {
+                        // After calling pack we can access the updated
+                        // Length indices of the packed parameter vector
+                        // with this property.
+                        LengthIndices[l] = k;
+                        l++;
                         parameters[k] = spec.Length; 
                         k++;
                     }

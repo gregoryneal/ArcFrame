@@ -1,6 +1,7 @@
 ﻿using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Math;
 using ArcFrame.Core.Results;
+using System;
 
 namespace ArcFrame.Core.Options
 {

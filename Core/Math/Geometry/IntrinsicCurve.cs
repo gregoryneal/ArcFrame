@@ -1,6 +1,7 @@
 ﻿using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
+using System;
 
 namespace ArcFrame.Core.Geometry
 {
@@ -35,19 +36,14 @@ namespace ArcFrame.Core.Geometry
             while (s0 < s)
             {
                 double h = _opt.SuggestStep(_spec.Kappa.Eval, s0, s);
-                Console.WriteLine($"Suggested step size: {h} ({s0},{s})");
+                //Console.WriteLine($"Suggested step size: {h} ({s0},{s})");
                 if (h <= 0) break;
-
                 _stepper.Step(ref P, ref R, _spec.Kappa.Eval, s0, h, _spec.Frame);
                 s0 += h;
             }
 
             // final sample
             var k = _spec.Kappa.Eval(s);
-
-            var T = new double[_spec.N];
-            for (int i = 0; i < _spec.N; i++) T[i] = R[i, 0];
-
             return new Sample(P, R, s, k);
         }
 
@@ -65,6 +61,8 @@ namespace ArcFrame.Core.Geometry
             {
                 s = (i == count - 1) ? Length : i * (Length / System.Math.Max(1, count - 1));
                 samples[i] = Evaluate(s);
+                //Console.WriteLine("New position sample:");
+                //Helpers.PrintVector(samples[i].P);
             }
             return samples;
         }

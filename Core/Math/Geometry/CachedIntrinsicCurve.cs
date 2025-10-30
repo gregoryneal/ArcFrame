@@ -1,6 +1,8 @@
 ﻿using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
+using System;
+using System.Collections.Generic;
 
 namespace ArcFrame.Core.Geometry
 {
@@ -16,9 +18,9 @@ namespace ArcFrame.Core.Geometry
         private readonly double _ds; // target checkpoint spacing
 
         // checkpoint arrays
-        private readonly List<double> _S = new();
-        private readonly List<double[]> _P = new();
-        private readonly List<double[,]> _R = new();
+        private readonly List<double> _S = new List<double>();
+        private readonly List<double[]> _P = new List<double[]>();
+        private readonly List<double[,]> _R = new List<double[,]>();
 
         public CachedIntrinsicCurve(CurveSpec spec, double checkpointSpacing = 0.25, IFrameStepper? stepper = null, IntegratorOptions? opt = null)
         {

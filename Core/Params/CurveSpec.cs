@@ -1,6 +1,7 @@
 ﻿using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Math;
 using ArcFrame.Solvers.BertolazziFrego;
+using System;
 
 namespace ArcFrame.Core.Params
 {
@@ -88,7 +89,7 @@ namespace ArcFrame.Core.Params
                     return new Arc(P0, t, n, 1 / k, startAngle, deltaAngle);
                 }
                 else
-                {
+                { 
                     //Console.WriteLine("Optimizing for line");
                     return new Line(P0, Helpers.Add(P0, Helpers.Multiply(Length, GetONAxis(0))));
                 }
