@@ -14,6 +14,7 @@ namespace ArcFrame.Core.Geometry
         private readonly IFrameStepper _stepper;
         private readonly IntegratorOptions _opt;
 
+        /// <inheritdoc/>
         public IntrinsicCurve(CurveSpec spec, IFrameStepper? stepper = null, IntegratorOptions? opt = null)
         {
             _spec = spec;
@@ -21,10 +22,11 @@ namespace ArcFrame.Core.Geometry
             _stepper = stepper ?? new LieGroupMidpointStepper();
         }
 
+        /// <inheritdoc/>
         public int Dimension => _spec.N;
-
+        /// <inheritdoc/>
         public double Length => _spec.Length;
-
+        /// <inheritdoc/>
         public Sample Evaluate(double s)
         {
             s = System.Math.Clamp(s, 0.0, _spec.Length);
@@ -66,9 +68,9 @@ namespace ArcFrame.Core.Geometry
             }
             return samples;
         }
-
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
-
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
     }
 }

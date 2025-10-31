@@ -24,11 +24,13 @@ namespace ArcFrame.Core.Geometry
         /// </summary>
         private readonly double[,] _E;            // N x d, ON columns spanning the embedding subspace
         private readonly double[] _p0;            // optional offset (N)
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
 
         /// <summary>
-        /// Embed a d dimensional curve in an arbitrary N dimensional subspace. where d < N.
+        /// Embed a d dimensional curve in an arbitrary N dimensional subspace where d < N.
         /// </summary>
         /// <param name="inner">Source curve in R^d.</param>
         /// <param name="E">N x d matrix, columns are (ideally) orthonormal basis vectors of the target subspace.</param>
@@ -53,11 +55,11 @@ namespace ArcFrame.Core.Geometry
 
             _p0 = p0 != null ? CheckLen(p0, _N) : new double[_N];
         }
-
+        /// <inheritdoc/>
         public int Dimension => _N;
-
+        /// <inheritdoc/>
         public double Length => _inner.Length;
-
+        /// <inheritdoc/>
         public Sample Evaluate(double s)
         {
             var q = _inner.Evaluate(s); // q.P, q.T in R^d ; q.K length d-1 (or null)

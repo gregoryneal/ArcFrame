@@ -75,6 +75,9 @@ namespace ArcFrame.Core.Math
             static double Norm2Diff(double[] a, double[] b) { double s = 0; for (int i = 0; i < a.Length; i++) { double d = a[i] - b[i]; s += d * d; } return System.Math.Sqrt(s); }
         }
 
+        /// <summary>
+        /// The default integrator options.
+        /// </summary>
         public static IntegratorOptions Default => new IntegratorOptions();
     }
 

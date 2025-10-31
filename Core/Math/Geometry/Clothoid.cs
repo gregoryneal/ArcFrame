@@ -36,11 +36,11 @@ namespace ArcFrame.Core.Geometry
                 _opts = IntegratorOptions.Default;
             }
         }
-
+        /// <inheritdoc/>
         public int Dimension => _p.N;
-
+        /// <inheritdoc/>
         public double Length => _p.Length;
-
+        /// <inheritdoc/>
         public Sample Evaluate(double s)
         {
             s = System.Math.Clamp(s, 0.0, _p.Length);
@@ -64,7 +64,9 @@ namespace ArcFrame.Core.Geometry
 
             return _eval.Evaluate(_p, s);
         }
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
 
         /// <summary>
@@ -95,6 +97,7 @@ namespace ArcFrame.Core.Geometry
         /// <param name="dk"></param>
         /// <param name="L"></param>
         /// <param name="evaluator"></param>
+        /// <param name="frame"></param>
         /// <returns></returns>
         public static Clothoid From2D(double x0, double y0, double t0, double k0, double dk, double L, IEvaluator evaluator, FrameModel frame = FrameModel.Frenet)
         {
@@ -116,6 +119,21 @@ namespace ArcFrame.Core.Geometry
             return new Clothoid(new ClothoidCurveSpec(2, L, p0, R0, law, frame), evaluator);
         }
 
+        /// <summary>
+        /// Create a 3D clothoid from a basis and curve parameters.
+        /// </summary>
+        /// <param name="P"></param>
+        /// <param name="T"></param>
+        /// <param name="N"></param>
+        /// <param name="B"></param>
+        /// <param name="k0"></param>
+        /// <param name="dk"></param>
+        /// <param name="tau0"></param>
+        /// <param name="dtau"></param>
+        /// <param name="L"></param>
+        /// <param name="evaluator"></param>
+        /// <param name="frame"></param>
+        /// <returns></returns>
         public static Clothoid From3D(Vec3d P, Vec3d T, Vec3d N, Vec3d B, double k0, double dk, double tau0, double dtau, double L, IEvaluator evaluator, FrameModel frame = FrameModel.Frenet)
         {
             double[] p = new double[] { P.X, P.Y, P.Z };
@@ -129,6 +147,19 @@ namespace ArcFrame.Core.Geometry
             return new Clothoid(new ClothoidCurveSpec(3, L, p, ONFrame.R0_FromTNB_Complete(t, n, b), law, frame), evaluator);
         }
 
+        /// <summary>
+        /// Create a 3D clothoid from a basis and clothoid parameters.
+        /// </summary>
+        /// <param name="P0"></param>
+        /// <param name="R0"></param>
+        /// <param name="k0"></param>
+        /// <param name="dk"></param>
+        /// <param name="tau0"></param>
+        /// <param name="dtau"></param>
+        /// <param name="L"></param>
+        /// <param name="evaluator"></param>
+        /// <param name="frame"></param>
+        /// <returns></returns>
         public static Clothoid From3D(double[] P0, double[,] R0, double k0, double dk, double tau0, double dtau, double L, IEvaluator evaluator, FrameModel frame = FrameModel.Frenet)
         {
             double[] k0v = { k0, tau0 };

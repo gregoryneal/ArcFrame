@@ -5,6 +5,11 @@
     /// </summary>
     public class BSpline : Spline
     {
+        /// <summary>
+        /// Create a cubic B-Spline
+        /// </summary>
+        /// <param name="controlPoints"></param>
+        /// <param name="frame"></param>
         public BSpline(double[][] controlPoints, FrameModel frame = FrameModel.Frenet) : base(controlPoints, ConstructBasis(), frame) { }
 
 

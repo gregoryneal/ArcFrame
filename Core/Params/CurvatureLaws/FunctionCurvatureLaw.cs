@@ -10,18 +10,23 @@ namespace ArcFrame.Core.Params
     {
         readonly Func<double, double[]> _func;
         readonly int _o;
+        /// <inheritdoc/>
         public int Order => _o;
-
+        /// <inheritdoc/>
         public bool IsLinear => false;
-
+        /// <inheritdoc/>
         public bool IsConstant => false;
-
+        /// <summary>
+        /// Create a curvature law with a predefined function for the curvatures.
+        /// </summary>
+        /// <param name="order"></param>
+        /// <param name="kappa"></param>
         public FunctionCurvatureLaw(int order, Func<double, double[]> kappa)
         {
             _o = order;
             _func = kappa;
         }
-
+        /// <inheritdoc/>
         public double[] Eval(double s)
         {
             return _func(s);

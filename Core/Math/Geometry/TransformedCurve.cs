@@ -12,9 +12,16 @@ namespace ArcFrame.Core.Geometry
     {
         private readonly IArcLengthCurve _inner;
         private readonly RigidTransform _transform;
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
-
+        /// <summary>
+        /// Create a transformed curve, one that is evaluated with a built in trasformation (translation + rotation)
+        /// </summary>
+        /// <param name="inner"></param>
+        /// <param name="transform"></param>
+        /// <exception cref="ArgumentException"></exception>
         public TransformedCurve(IArcLengthCurve inner, RigidTransform transform)
         {
             if (inner.Dimension != transform.N) throw new ArgumentException($"Dimension mismatch between curve ({inner.Dimension}) and transform ({transform.N})");
@@ -58,11 +65,11 @@ namespace ArcFrame.Core.Geometry
         {
             return new TransformedCurve(inner, RigidTransform.FromYawXZ(inner.Dimension, angle, pivotX, pivotZ, tx, tz));
         }
-
+        /// <inheritdoc/>
         public int Dimension => _inner.Dimension;
-
+        /// <inheritdoc/>
         public double Length => _inner.Length;
-
+        /// <inheritdoc/>
         public Sample Evaluate(double s)
         {
             var sp = _inner.Evaluate(s);

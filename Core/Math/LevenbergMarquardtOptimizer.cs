@@ -1,24 +1,55 @@
 ﻿namespace ArcFrame.Core.Math
 {
+    /// <summary>
+    /// The result of the optimization routine.
+    /// </summary>
     public class OptimizationResult
     {
+        /// <summary>
+        /// Final parameters of the optimizer
+        /// </summary>
         public double[] FinalParameters { get; set; } = { };
+        /// <summary>
+        /// Final cost of the optimization routine.
+        /// </summary>
         public double FinalCost { get; set; } = 0;
+        /// <summary>
+        /// How many iterations the routine took.
+        /// </summary>
         public int Iterations { get; set; } = 0;
+        /// <summary>
+        /// Was the final error within tolerance.
+        /// </summary>
         public bool Success { get; set; } = false;
+        /// <summary>
+        /// The optimization message, this will tell you why a result failed.
+        /// </summary>
         public string Message { get; set; } = "";
     }
 
+    /// <summary>
+    /// Create an optimizer that utilizes the LMA for least squares optimization.
+    /// </summary>
     public class LevenbergMarquardtOptimizer
     {
-        // Delegate for the function that calculates the residuals.
-        // Takes current parameters, returns an array of residuals.
+        /// <summary>
+        /// Delegate for the function that calculates the residuals.
+        /// Takes the current parameters and returns an array of residuals.
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
         public delegate double[] ResidualFunction(double[] parameters);
 
         private readonly ResidualFunction _residualFunction;
         private readonly int _numParameters;
         private readonly int _numResiduals;
 
+        /// <summary>
+        /// Create new instance of the optimizer with the residual.
+        /// </summary>
+        /// <param name="residualFunction"></param>
+        /// <param name="numParameters"></param>
+        /// <param name="numResiduals"></param>
         public LevenbergMarquardtOptimizer(ResidualFunction residualFunction, int numParameters, int numResiduals)
         {
             _residualFunction = residualFunction;

@@ -7,6 +7,9 @@ using System.Collections.Generic;
 
 namespace ArcFrame.Solvers.BertolazziFrego
 {
+    /// <summary>
+    /// Bertolazzi Frego 2D clothoid evaluator using fresnel integrators.
+    /// </summary>
     public class BFEvaluator : IEvaluator
     {
 
@@ -78,13 +81,13 @@ namespace ArcFrame.Solvers.BertolazziFrego
         /// This is that number of terms.
         /// </summary>
         public static readonly int A_SMALL_SERIES_SIZE = 3;
-
+        /// <inheritdoc/>
         public string Key => "BFEvaluator";
-
+        /// <inheritdoc/>
         public string Author => "Enrico Bertolazzi and Marco Frego";
-
+        /// <inheritdoc/>
         public string Reference => "https://doi.org/10.48550/arXiv.1305.6644";
-
+        /// <inheritdoc/>
         public int TargetDimension => 2;
 
         /// <summary>
@@ -244,7 +247,6 @@ namespace ArcFrame.Solvers.BertolazziFrego
         /// </summary>
         /// <param name="b"></param>
         /// <param name="k"></param>
-        /// <param name="e">The allowable error</param>
         /// <returns></returns>
         private static double[][] EvalXYaZero(double b, int k)
         {
@@ -512,7 +514,17 @@ namespace ArcFrame.Solvers.BertolazziFrego
             Y *= Y;
             return (phi0 + phi1) * (CF[0] + xy * (CF[1] + xy * CF[2]) + (CF[3] + xy * CF[4]) * (X + Y) + CF[5] * (X * X + Y * Y));
         }
-
+        /// <summary>
+        /// Evaluate a clothoid given its parameters using the BFEvaluator.
+        /// </summary>
+        /// <param name="x0"></param>
+        /// <param name="y0"></param>
+        /// <param name="t0"></param>
+        /// <param name="k0"></param>
+        /// <param name="dk"></param>
+        /// <param name="s"></param>
+        /// <param name="frame"></param>
+        /// <returns></returns>
         public static Sample Evaluate(double x0, double y0, double t0, double k0, double dk, double s, FrameModel frame)
         {
             double[][] XY = GeneralizedFresnelCS(1, dk * s * s, k0 * s, t0);
@@ -536,7 +548,7 @@ namespace ArcFrame.Solvers.BertolazziFrego
             }
             return new Sample(new double[] { x0 + (s * XY[0][0]), y0 + (s * XY[1][0]) }, R, s, new double[] { k0 + (dk * s) });
         }
-
+        /// <inheritdoc/>
         public Sample Evaluate(CurveSpec p, double s)
         {
             ICurvatureLaw l = p.Kappa;

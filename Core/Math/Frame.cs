@@ -9,7 +9,13 @@ namespace ArcFrame.Core.Math
     /// </summary>
     public enum FrameModel
     {
+        /// <summary>
+        /// A frenet frame is built from the intrinsic curvature vector.
+        /// </summary>
         Frenet,
+        /// <summary>
+        /// A Bishop frame is a rotation minimizing frame.
+        /// </summary>
         Bishop
     }
 
@@ -36,11 +42,25 @@ namespace ArcFrame.Core.Math
     {
         private static double eps = 1E-12;
 
+        /// <summary>
+        /// Create an ON frame from a tangent, normal and binormal, attempt to complete the ON basis if length T > 3.
+        /// </summary>
+        /// <param name="T"></param>
+        /// <param name="N"></param>
+        /// <param name="B"></param>
+        /// <returns></returns>
         public static double[,] R0_FromTNB_Complete(double[] T, double[] N, double[] B)
         {
             return R0_FromR_Complete(R0_FromTNB(T, N, B));
         }
 
+        /// <summary>
+        /// Create a 3x3 ON frame with a tangent, normal and binormal.
+        /// </summary>
+        /// <param name="T"></param>
+        /// <param name="N"></param>
+        /// <param name="B"></param>
+        /// <returns></returns>
         public static double[,] R0_FromTNB(double[] T, double[] N, double[] B)
         {
             double[,] R = new double[T.Length, 3];
@@ -50,11 +70,23 @@ namespace ArcFrame.Core.Math
             return R;
         }
 
+        /// <summary>
+        /// Complete an ON frame given a tangent and normal.
+        /// </summary>
+        /// <param name="T"></param>
+        /// <param name="N"></param>
+        /// <returns></returns>
         public static double[,] R0_FromTN_Complete(double[] T, double[] N)
         {
             return R0_FromR_Complete(R0_FromTN(T, N));
         }
 
+        /// <summary>
+        /// Create a Nx2 ON frame from a tangent and normal.
+        /// </summary>
+        /// <param name="T"></param>
+        /// <param name="N"></param>
+        /// <returns></returns>
         public static double[,] R0_FromTN(double[] T, double[] N)
         {
             double[,] R = new double[T.Length, 2];
@@ -132,7 +164,7 @@ namespace ArcFrame.Core.Math
 
         /// <summary>
         /// Given an Nxd matrix where the columns are orthonormal basis vectors in R^N,
-        /// and N < d, Calculate the other N-d basis vectors and add them to the matrix.
+        /// and N less than d, Calculate the other N-d basis vectors and add them to the matrix.
         /// 
         /// Example:
         ///     in -> [
@@ -150,6 +182,7 @@ namespace ArcFrame.Core.Math
         ///            ]
         /// </summary>
         /// <param name="A">The incomplete basis matrix</param>
+        /// <param name="tol">The ON frame tolerance</param>
         /// <returns></returns>
         public static double[,] R0_FromR_Complete(double[,] A, double tol = 1E-10)
         {
@@ -185,7 +218,7 @@ namespace ArcFrame.Core.Math
                 // Project out components along existing columns
                 OrthoProjectOut(v, cols);
 
-                double nrm = Helpers.Norm(v);
+                double nrm = Helpers.Len(v);
                 if (nrm > tol)
                 {
                     Helpers.Multiply(v, 1.0 / nrm);
@@ -201,7 +234,7 @@ namespace ArcFrame.Core.Math
                 var v = new double[N];
                 for (int i = 0; i < N; i++) v[i] = rng.NextDouble() - 0.5;
                 OrthoProjectOut(v, cols);
-                double nrm = Helpers.Norm(v);
+                double nrm = Helpers.Len(v);
                 if (nrm > tol)
                 {
                     Helpers.Multiply(v, 1.0 / nrm);
@@ -273,6 +306,12 @@ namespace ArcFrame.Core.Math
         }*/
 
         //helpers
+        /// <summary>
+        /// Get a column from a matrix
+        /// </summary>
+        /// <param name="M"></param>
+        /// <param name="j"></param>
+        /// <returns></returns>
         public static double[] GetCol(double[,] M, int j)
         {
             int N = M.GetLength(0);
@@ -280,6 +319,12 @@ namespace ArcFrame.Core.Math
             for (int i = 0; i < N; i++) c[i] = M[i, j];
             return c;
         }
+        /// <summary>
+        /// Set a column in a matrix.
+        /// </summary>
+        /// <param name="M"></param>
+        /// <param name="j"></param>
+        /// <param name="c"></param>
         public static void SetCol(double[,] M, int j, double[] c)
         {
             for (int i = 0; i < M.GetLength(0); i++) M[i, j] = c[i];

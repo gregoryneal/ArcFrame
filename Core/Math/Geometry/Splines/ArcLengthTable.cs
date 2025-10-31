@@ -9,6 +9,9 @@ namespace ArcFrame.Core.Geometry.Splines
     public sealed class ArcLengthTable
     {
         readonly double[] t, s; // t in [0,1], s cumulative in [0,L]
+        /// <summary>
+        /// Total length of the cached polyline.
+        /// </summary>
         public double Length => s[^1];
 
         /// <summary>
@@ -37,6 +40,11 @@ namespace ArcFrame.Core.Geometry.Splines
             // normalize to arc length (optionally refine with Simpson/RK)
         }
 
+        /// <summary>
+        /// Maps s in [0, L] to [0, 1]
+        /// </summary>
+        /// <param name="sQuery"></param>
+        /// <returns></returns>
         public double MapStoT(double sQuery)
         {
             if (sQuery > Length) sQuery = Length;

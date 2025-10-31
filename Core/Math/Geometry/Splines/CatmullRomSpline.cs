@@ -3,10 +3,25 @@ using ArcFrame.Core.Math.Geometry.Splines;
 
 namespace ArcFrame.Core.Geometry.Splines
 {
+    /// <summary>
+    /// Class for a Catmull-Rom spline with adjustable tension.
+    /// </summary>
     public class CatmullRomSpline : Spline
     {
+        /// <summary>
+        /// Controls the tangent at the control points. 
+        /// Higher values -> flatter tangents at the control points
+        /// which might cause the curve to make large corrective bows.
+        /// Lower values -> allows the spline to make sharper bends.
+        /// </summary>
         public readonly double Tension;
 
+        /// <summary>
+        /// Create the Catmull-Rom spline with control points and tension.
+        /// </summary>
+        /// <param name="controlPoints"></param>
+        /// <param name="tension"></param>
+        /// <param name="frame"></param>
         public CatmullRomSpline(double[][] controlPoints, double tension = 0.5, FrameModel frame = FrameModel.Frenet) : base(controlPoints, ConstructBasis(tension), frame)
         { Tension = tension; }
 

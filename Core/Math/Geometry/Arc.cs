@@ -10,12 +10,21 @@ namespace ArcFrame.Core.Geometry
     public sealed class Arc : IArcLengthCurve
     {
         //center and two basis vectors to establish the 2D subplane the circle inhabits
+        /// <summary>
+        /// The center and basis vectors.
+        /// </summary>
         public double[] _c, _e1, _e2;
         private double[,] _R0;
         //radius, start angle and angle delta. If the arc is a cirle centered in the XZ plane, _a0 = 0 would correspond to the point (_r, 0), _ad > 0 corresponds to CCW rotations and _ad < 0 to CW rotations
+        /// <summary>
+        /// The radius, start angle, angle delta, length and sign (CW vs CCW)
+        /// </summary>
         public double _r, _a0, _ad, _len, _sign;
-        public int _n;
+        private int _n;
+
+        /// <inheritdoc/>
         public int Dimension => _n;
+        /// <inheritdoc/>
         public double Length => _len;
 
         /// <summary>
@@ -52,7 +61,7 @@ namespace ArcFrame.Core.Geometry
             }
             _R0 = ONFrame.R0_FromTN_Complete(T0, N0);
         }
-
+        /// <inheritdoc/>
         public Sample Evaluate(double s)
         {
             if (s <= 0) s = 0;
@@ -121,7 +130,7 @@ namespace ArcFrame.Core.Geometry
         /// Build an arc from XZ plane-parameterized arc.
         /// </summary>
         /// <param name="cx"></param>
-        /// <param name="cz"></param>
+        /// <param name="cy"></param>
         /// <param name="radius"></param>
         /// <param name="startAngle"></param>
         /// <param name="deltaAngle"></param>
@@ -139,7 +148,7 @@ namespace ArcFrame.Core.Geometry
         /// Build from an arc in 3D space.
         /// </summary>
         /// <param name="center"></param>
-        /// <param name="planeNormal"></param>
+        /// <param name="planeNormal3"></param>
         /// <param name="radius"></param>
         /// <param name="startAngle"></param>
         /// <param name="deltaAngle"></param>
@@ -180,8 +189,9 @@ namespace ArcFrame.Core.Geometry
             arc = null;
             return false;
         }
-
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
     }
 }

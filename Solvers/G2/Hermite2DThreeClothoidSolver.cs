@@ -20,24 +20,22 @@ namespace ArcFrame.Solvers.G2
     ///  - Joint C0/C1/C2 between (seg0,seg1) and (seg1,seg2)   [hard]
     /// Optionally add mild regularizers on slopes/lengths to pick a unique solution.
     /// </summary>
-    public class HermiteThreeClothoidSolver
+    public class Hermite2DThreeClothoidSolver
     {
-        public class Result
-        {
-            public readonly CurveSpec[] Segments;
-            public readonly CompositeCurve Composite;
-            public readonly bool Converged;
-            public readonly int Iterations;
-            public Result(CurveSpec[] segments, CompositeCurve composite, bool converged, int iterations)
-            {
-                Segments = segments;
-                Composite = composite;
-                Converged = converged;
-                Iterations = iterations;
-            }
-        }
-
-        public Result Solve(
+        /// <summary>
+        /// Solve the three clothoid solver
+        /// </summary>
+        /// <param name="P0"></param>
+        /// <param name="theta0"></param>
+        /// <param name="k0"></param>
+        /// <param name="P1"></param>
+        /// <param name="theta1"></param>
+        /// <param name="k1"></param>
+        /// <param name="fairnessWeight"></param>
+        /// <param name="maxIter"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public CompositeCurveSolverResult Solve(
             double[] P0, double theta0, double k0,
             double[] P1, double theta1, double k1,
             double fairnessWeight = 0.0,  // set >0 to discourage large |dk| or overlong segments
@@ -88,22 +86,23 @@ namespace ArcFrame.Solvers.G2
             };
             //Console.WriteLine("HermiteThreeClothoidSolver before solve\n");
             var result = solver.Solve(prob, optimizeP0: true, optimizeLength: true, optimizeR0: true);
-            var specs = result.FinalSolution;
+            //var specs = result.FinalSolution;
             //Console.WriteLine("HermiteThreeClothoidSolver solved\n");
 
             // --- 3) Rebuild a composite curve for convenience ----------------
+            /*
             var comp = new CompositeCurve();
             var evaluator = new BFEvaluator();
             comp.Add(new Clothoid(specs[0], evaluator))
                 .AddG1(new Clothoid(specs[1], evaluator), out _)
-                .AddG1(new Clothoid(specs[2], evaluator), out _);
+                .AddG1(new Clothoid(specs[2], evaluator), out _);*/
             /*
             comp.AddG1(new IntrinsicCurve(specs[0]), out _);
             comp.AddG1(new IntrinsicCurve(specs[1]), out _);
             comp.AddG1(new IntrinsicCurve(specs[2]), out _);
             */
 
-            return new Result(specs, comp, true, maxIter);
+            return result;
         }
 
         // ------------------ seed builder ------------------

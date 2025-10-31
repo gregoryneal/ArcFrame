@@ -3,6 +3,9 @@ using System;
 
 namespace ArcFrame.Core.Params.CurvatureLaws
 {
+    /// <summary>
+    /// Helper methods for Curvature laws
+    /// </summary>
     public static class CurvatureLawExtensions
     {
         /// Returns a jet up to `order` (>=0). outJet[o][j] = d^o κ_j(s)/ds^o.

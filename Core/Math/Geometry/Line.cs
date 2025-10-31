@@ -13,6 +13,11 @@ namespace ArcFrame.Core.Geometry
         private readonly double _len;
         private readonly int _n;
 
+        /// <summary>
+        /// Create a line from a to b.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
         public Line(double[] a, double[] b)
         {
             _n = a.Length;
@@ -41,22 +46,42 @@ namespace ArcFrame.Core.Geometry
             R = ONFrame.R0_FromT_Complete(T);
         }
 
-        public static Line From2D(double x0, double z0, double x1, double z1)
+        /// <summary>
+        /// Create a 3d line on the XZ plane
+        /// </summary>
+        /// <param name="x0"></param>
+        /// <param name="z0"></param>
+        /// <param name="x1"></param>
+        /// <param name="z1"></param>
+        /// <returns></returns>
+        public static Line From2D_XZ(double x0, double z0, double x1, double z1)
         {
             return new Line(new[] { x0, 0, z0 }, new[] { x1, 0, z1 });
         }
 
+        /// <summary>
+        /// Create a 3D line.
+        /// </summary>
+        /// <param name="x0"></param>
+        /// <param name="y0"></param>
+        /// <param name="z0"></param>
+        /// <param name="x1"></param>
+        /// <param name="y1"></param>
+        /// <param name="z1"></param>
+        /// <returns></returns>
         public static Line From3D(double x0, double y0, double z0, double x1, double y1, double z1)
         {
             return new Line(new[] { x0, y0, z0 }, new[] { x1, y1, z1 });
         }
-
+        /// <inheritdoc/>
         public int Dimension => _n;
-
+        /// <inheritdoc/>
         public double Length => _len;
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
-
+        /// <inheritdoc/>
         public Sample Evaluate(double s)
         {
             if (s < 0) s = 0;

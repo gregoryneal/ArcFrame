@@ -18,8 +18,13 @@
         /// <param name="s">The arc length</param>
         /// <returns></returns>
         double[] Eval(double s);
-
+        /// <summary>
+        /// Does the curvature depend linearly on the arc length?
+        /// </summary>
         public bool IsLinear { get; }
+        /// <summary>
+        /// Is the curvature constant along the arc length?
+        /// </summary>
         public bool IsConstant { get; }
 
     }

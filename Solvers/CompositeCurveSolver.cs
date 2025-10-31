@@ -17,7 +17,14 @@ namespace ArcFrame.Solvers
         /// The seed specs, these will be altered to fit the constraints
         /// </summary>
         public CurveSpec[] Seeds { get; }
+        /// <summary>
+        /// Constraints on the problem to be solved.
+        /// </summary>
         public List<ICompositeConstraint> Constraints { get; }
+        /// <summary>
+        /// Create a new composite curve problem with input seeds.
+        /// </summary>
+        /// <param name="seeds"></param>
         public CompositeCurveProblem(CurveSpec[] seeds) 
         {
             Constraints = new List<ICompositeConstraint>();
@@ -29,17 +36,61 @@ namespace ArcFrame.Solvers
         /// </summary>
         /// <param name="single"></param>
         public void Add(ICurveConstraint single) => Constraints.Add(new SegmentConstraintWrapper(single));
+        /// <summary>
+        /// Add a single composite curve constraint.
+        /// </summary>
+        /// <param name="joint"></param>
         public void Add(ICompositeConstraint joint) => Constraints.Add(joint);
     }
 
+    /// <summary>
+    /// Class to hold information about the solver results.
+    /// </summary>
     public sealed class CompositeCurveSolverResult
     {
+        /// <summary>
+        /// All of the trial solutions on the way to finding the real solution.
+        /// </summary>
         public CurveSpec[][] TrialSolutions { get; set; }
+        /// <summary>
+        /// The final curve spec solution list.
+        /// </summary>
         public CurveSpec[] FinalSolution { get; set; }
+        /// <summary>
+        /// Was the curve solved.
+        /// </summary>
         public bool Solved { get; set; }
+        /// <summary>
+        /// Solver message.
+        /// </summary>
         public string Message { get; set; }
+        /// <summary>
+        /// Number of iterations before it was solved.
+        /// </summary>
         public int Iterations { get; set; }
+        /// <summary>
+        /// The final cost of the solution.
+        /// </summary>
         public double FinalCost { get; set; }
+
+        /// <summary>
+        /// Create a composte curve solver result.
+        /// </summary>
+        /// <param name="trials"></param>
+        /// <param name="result"></param>
+        /// <param name="solved"></param>
+        /// <param name="message"></param>
+        /// <param name="iterations"></param>
+        /// <param name="finalCost"></param>
+        public CompositeCurveSolverResult(CurveSpec[][] trials, CurveSpec[] result, bool solved, string message, int iterations, double finalCost)
+        {
+            TrialSolutions = trials;
+            FinalSolution = result;
+            Solved = solved;
+            Message = message;
+            Iterations = iterations;
+            FinalCost = finalCost;
+        }
     }
 
     /// <summary>
@@ -48,11 +99,17 @@ namespace ArcFrame.Solvers
     /// </summary>
     public sealed class CompositeCurveSolver
     {
+        /// <summary>
+        /// Hard weight.
+        /// </summary>
         public double HardWeight { get; set; } = 1e6;
         /// <summary>
         /// Used for finite difference approximation
         /// </summary>
         public double EpsFD { get; set; } = 1e-6;
+        /// <summary>
+        /// Max iterations of the solver
+        /// </summary>
         public int MaxIter { get; set; } = 800;
         /// <summary>
         /// Solution is solved when the change in cost per step is lower than this value.
@@ -89,7 +146,6 @@ namespace ArcFrame.Solvers
             double lambdaFactor = 10;
 
             CurveSpec[] specs = problem.Seeds;
-            IterationContext ctx;
             for (int i = 0; i < MaxIter; i++)
             {
                 specs = pack.Unpack(currentParameters);
@@ -124,15 +180,7 @@ namespace ArcFrame.Solvers
                 }
                 catch (Exception)
                 {
-                    return new CompositeCurveSolverResult
-                    {
-                        TrialSolutions = new CurveSpec[][] { specs },
-                        FinalSolution = specs,
-                        Solved = false,
-                        Message = "Solution did not converge, matrix not factorizable.",
-                        FinalCost = currentCost,
-                        Iterations = i
-                    };
+                    return new CompositeCurveSolverResult(new CurveSpec[][] { specs }, specs, false, "Solution did not converge, matrix not factorizable.", i, currentCost);
                 }
                 //Console.WriteLine($"try solve for dP: ");
                 //Helpers.PrintVector(dP);
@@ -172,15 +220,7 @@ namespace ArcFrame.Solvers
 
                     if (costChange < RelTol)
                     {
-                        return new CompositeCurveSolverResult
-                        {
-                            TrialSolutions = trialSolutions.ToArray(),
-                            FinalCost = currentCost,
-                            FinalSolution = specs,
-                            Iterations = i,
-                            Message = "Solution converged, cost change below threshold",
-                            Solved = true
-                        };
+                        return new CompositeCurveSolverResult(trialSolutions.ToArray(), specs, true, "Solution converged, cost change below threshold.", i, currentCost);
                     }
                 }
                 else
@@ -192,15 +232,7 @@ namespace ArcFrame.Solvers
             //Console.Write($"Unpacking best theta: ");
             //Helpers.PrintVector(bestTheta);
             //Console.WriteLine();
-            return new CompositeCurveSolverResult
-            {
-                TrialSolutions = trialSolutions.ToArray(),
-                FinalSolution = specs,
-                FinalCost = currentCost,
-                Iterations = MaxIter,
-                Solved = false,
-                Message = "Solution did not converge, max iterations reached"
-            };
+            return new CompositeCurveSolverResult(trialSolutions.ToArray(), specs, false, "Solution did not converge, max iterations reached", MaxIter, currentCost);
         }
 
         private double[,] BuildResidualsAndJacobian(IReadOnlyList<CurveSpec> specs, double[] currenParams,

@@ -12,6 +12,9 @@ namespace ArcFrame.Core.Geometry
     /// </summary>
     public class CompositeCurve : IArcLengthCurve
     {
+        /// <summary>
+        /// Number of segments.
+        /// </summary>
         public int Count => _segs.Count;
         private List<IArcLengthCurve> _segs = new List<IArcLengthCurve>();
         //the dimension of the curve, enforced across segments
@@ -25,6 +28,7 @@ namespace ArcFrame.Core.Geometry
         private double[] _prefix = { };
         //call EnsurePrefix if true
         private bool _dirty = true;
+        /// <inheritdoc/>
         public int Dimension
         {
             get
@@ -35,7 +39,7 @@ namespace ArcFrame.Core.Geometry
                 return _n.Value;
             }
         }
-
+        /// <inheritdoc/>
         public double Length
         {
             get
@@ -44,6 +48,12 @@ namespace ArcFrame.Core.Geometry
                 return _len;
             }
         }
+
+        /// <summary>
+        /// Index the CompositeCurve, return the indexed segment.
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
         public IArcLengthCurve this[int index]
         {
             get
@@ -51,7 +61,9 @@ namespace ArcFrame.Core.Geometry
                 return _segs[index];
             }
         }
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
 
         /// <summary>
@@ -123,6 +135,7 @@ namespace ArcFrame.Core.Geometry
         /// with the previous endpoint, and the new segment tangent is aligned with the previous tangent.
         /// </summary>
         /// <param name="segment"></param>
+        /// <param name="xfUsed">The transform that was used to join the segment to the curve</param>
         /// <returns></returns>
         public CompositeCurve AddG1(IArcLengthCurve segment, out RigidTransform xfUsed)
         {
@@ -174,9 +187,19 @@ namespace ArcFrame.Core.Geometry
             return this;
         }
 
-        public CompositeCurve AddRange(IEnumerable<IArcLengthCurve> segments)
+        /// <summary>
+        /// Add a list of segments to this CompositeCurve
+        /// </summary>
+        /// <param name="segments"></param>
+        /// <param name="g1">Enforce G1 joins (discard transformations)</param>
+        /// <returns></returns>
+        public CompositeCurve AddRange(IEnumerable<IArcLengthCurve> segments, bool g1 = true)
         {
-            foreach (IArcLengthCurve segment in segments) Add(segment);
+            foreach (IArcLengthCurve segment in segments)
+            {
+                if (g1) AddG1(segment, out _);
+                else Add(segment);
+            }
             return this;
         }
 
@@ -225,7 +248,7 @@ namespace ArcFrame.Core.Geometry
             int n = aRaw.Length;
             var a = Helpers.Normalize((double[])aRaw.Clone());
             var b = Helpers.Normalize((double[])bRaw.Clone());
-            double c = Helpers.Clamp(Helpers.Dot(a, b), -1.0, 1.0);       // cos(theta)
+            double c = System.Math.Clamp(Helpers.Dot(a, b), -1.0, 1.0);       // cos(theta)
             if (c > 1 - tol) return RigidTransform.Identity(n).R;
 
             //build orthonormal basis vectors u1 and u2 such that span(u1, u2) = span(a, b)
@@ -265,6 +288,11 @@ namespace ArcFrame.Core.Geometry
             return R;
         }
 
+        /// <summary>
+        /// Craft a CompositeCurve from a list of specs.
+        /// </summary>
+        /// <param name="specs"></param>
+        /// <returns></returns>
         public static CompositeCurve FromSpecList(CurveSpec[] specs)
         {
             CompositeCurve c = new CompositeCurve();

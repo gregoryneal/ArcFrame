@@ -7,7 +7,10 @@ using System.Collections.Generic;
 
 namespace ArcFrame.Core.API
 {
-
+    /// <summary>
+    /// A class that attempts to fit a clothoid or clothoid segments to a set of points.
+    /// Note: This is a redundant special case of the curve constraint solvers.
+    /// </summary>
     public static class PolylineClothoidFitter
     {
         /// <summary>
@@ -44,7 +47,7 @@ namespace ArcFrame.Core.API
                     if (double.IsNaN(cparams.Length) || cparams.Length <= 0)
                     {
                         // Fallback: straight line (ND)
-                        var line = Line.From2D(A.x, A.y, B.x, B.y);
+                        var line = Line.From2D_XZ(A.x, A.y, B.x, B.y);
                         comp.Add(line);
                         continue;
                     }
@@ -64,6 +67,15 @@ namespace ArcFrame.Core.API
             }
         }
 
+        /// <summary>
+        /// Build a CompositeCurve out of a set of clothoid with associated endpoints, tangend and curvatures.
+        /// </summary>
+        /// <param name="points"></param>
+        /// <param name="fit2D"></param>
+        /// <param name="evaluator"></param>
+        /// <param name="closed"></param>
+        /// <param name="n"></param>
+        /// <returns></returns>
         public static FitResult<CompositeCurve> FitPolyline_G2_XY(IReadOnlyList<(double x, double y, double t, double k)> points, Func<double, double, double, double, double, double, double, double, ClothoidCurveSpec> fit2D, IEvaluator evaluator, bool closed, int n)
         {
             if (points == null || points.Count < 2) return FitResult<CompositeCurve>.Fail("Not enough points in polyline");
@@ -90,7 +102,7 @@ namespace ArcFrame.Core.API
                     if (double.IsNaN(cparams.Length) || cparams.Length <= 0)
                     {
                         // Fallback: straight line (ND)
-                        var line = Line.From2D(A.x, A.y, B.x, B.y);
+                        var line = Line.From2D_XZ(A.x, A.y, B.x, B.y);
                         comp.Add(line);
                         continue;
                     }

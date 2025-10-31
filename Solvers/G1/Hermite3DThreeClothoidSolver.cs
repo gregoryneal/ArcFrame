@@ -7,44 +7,20 @@ using System;
 namespace ArcFrame.Solvers.G1
 {
     /// <summary>
-    /// Solve for a 3D clothoid with start pose [P0, T0]
-    /// and end pose [P1, T1]
-    /// 
-    /// TODO: Fix this it dont work
+    /// Solve for a 3D composite clothoid with three arcs, with start pose [P0, T0] and end pose [P1, T1].
     /// </summary>
-    public static class Hermite3DClothoidSolver
+    public static class Hermite3DThreeClothoidSolver
     {
-
-        public static CompositeCurveSolverResult Solve(double[] P0, double[] T0, double[] P1, double[] T1)
-        {
-            CurveSpec seed = new CurveSpec(3, Helpers.Len(Helpers.Subtract(P1, P0)), P0, ONFrame.R0_FromT_Complete(T0), new LinearCurvatureLaw(new double[] { 1, 1 }, new double[] { 1, 1 }), FrameModel.Frenet);
-            CompositeCurveProblem problem = new CompositeCurveProblem(new CurveSpec[] { seed });
-            CompositeCurveSolver solver = new CompositeCurveSolver()
-            {
-                HardWeight = 1E-7,
-                MaxIter = 80,
-                RelTol = 1E-5,
-                EpsFD = 1E-6
-            };
-
-            problem.Add(new StartPoseConstraint(0, P0, T0, ConstraintType.Hard, 4));
-            problem.Add(new EndPoseConstraint(0, P1, T1, ConstraintType.Hard, 4));
-
-            CompositeCurveSolverResult result = solver.Solve(problem, false, true, false);
-
-            return result;//.FinalSolution[0];
-        }
-
         /// <summary>
         /// Idea: Fallback: 3 segments in 3D (G1 joints) – more DOF, very robust
         /// </summary>
-        public static CompositeCurveSolverResult Fit3DClothoidG1_ThreeArc(double[] P0, double[] T0, double[] P1, double[] T1)
+        public static CompositeCurveSolverResult Solve(double[] P0, double[] T0, double[] P1, double[] T1)
         {
             // Initial seed curve is a straight line from P0 to P1
             var chord = Helpers.Subtract(P1, P0);
             var t0 = Helpers.Normalize(chord);
             var R0 = ONFrame.R0_FromT_Complete(t0);
-            double Ltot = Math.Max(1.0, Helpers.Norm(chord));
+            double Ltot = Math.Max(1.0, Helpers.Len(chord));
             double L0 = 0.33 * Ltot, L1 = 0.34 * Ltot, L2 = 0.33 * Ltot;
 
             // Seed three vector-curvature laws (order=2) with small slopes

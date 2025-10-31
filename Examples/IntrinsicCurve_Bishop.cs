@@ -12,6 +12,9 @@ namespace ArcFrame.Examples
     /// </summary>
     public class IntrinsicCurve_Bishop
     {
+        /// <summary>
+        /// Example
+        /// </summary>
         public static void Main()
         {
             // 3d curve

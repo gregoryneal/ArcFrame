@@ -110,10 +110,13 @@ namespace ArcFrame.Core.Constraints
     public sealed class SegmentConstraintWrapper : ICompositeConstraint
     {
         private readonly ICurveConstraint _inner;
+        /// <inheritdoc/>
         public SegmentConstraintWrapper(ICurveConstraint inner) { _inner = inner; }
+        /// <inheritdoc/>
         public ConstraintType Type => _inner.Type;
+        /// <inheritdoc/>
         public double Weight => _inner.Weight;
-
+        /// <inheritdoc/>
         public double[] Residual(IReadOnlyList<CurveSpec> specs)
         {
             var res = _inner.Residual(specs[_inner.SegmentIndex]);
@@ -121,7 +124,7 @@ namespace ArcFrame.Core.Constraints
                 for (int i = 0; i < res.Length; i++) res[i] *= Weight;
             return res;
         }
-
+        /// <inheritdoc/>
         public void ShowInfo()
         {
             Type t = GetType();
@@ -138,17 +141,19 @@ namespace ArcFrame.Core.Constraints
     /// specified by its index.</remarks>
     public sealed class LengthRegularizer : ICompositeConstraint
     {
+        /// <inheritdoc/>
         public ConstraintType Type { get; } = ConstraintType.Soft;
+        /// <inheritdoc/>
         public double Weight { get; }
         private readonly int _segIdx;
-
+        /// <inheritdoc/>
         public LengthRegularizer(int segIdx, double weight) { _segIdx = segIdx; Weight = weight; }
-
+        /// <inheritdoc/>
         public double[] Residual(IReadOnlyList<CurveSpec> specs)
         {
             return new[] { Weight * specs[_segIdx].Length };
         }
-
+        /// <inheritdoc/>
         public void ShowInfo()
         {
             Type t = GetType();
@@ -162,18 +167,43 @@ namespace ArcFrame.Core.Constraints
     /// </summary>
     public sealed class CompositeCurveJointConstraint : ICompositeConstraint
     {
+        /// <inheritdoc/>
         public ConstraintType Type { get; } = ConstraintType.Hard;
+        /// <inheritdoc/>
         public double Weight { get; } = 1.0;
-
+        /// <summary>
+        /// The first segment index
+        /// </summary>
         public int LeftIndex { get; }     // segment i
+        /// <summary>
+        /// The second segment index
+        /// </summary>
         public int RightIndex { get; }    // segment i+1
+        /// <summary>
+        /// Apply position constraint at joint
+        /// </summary>
         public bool C0 { get; } = true;
+        /// <summary>
+        /// Apply tangent constraint at joint
+        /// </summary>
         public bool C1 { get; } = true;
+        /// <summary>
+        /// Apply curvature constraint at joint
+        /// </summary>
         public bool C2 { get; } = false;
+        /// <summary>
+        /// Weight of position residual
+        /// </summary>
         public double wC0 { get; } = 1.0;
+        /// <summary>
+        /// Weight of tangent residual
+        /// </summary>
         public double wC1 { get; } = 1.0;
+        /// <summary>
+        /// Weight of curvature residual
+        /// </summary>
         public double wC2 { get; } = 1.0;
-
+        /// <inheritdoc/>
         public CompositeCurveJointConstraint(int leftIndex, int rightIndex, bool c0 = true, bool c1 = true, bool c2 = false, ConstraintType type = ConstraintType.Hard, double weight = 1.0, double wC0 = 1.0, double wC1 = 1.0, double wC2 = 1.0)
         {
             LeftIndex = leftIndex;
@@ -187,7 +217,7 @@ namespace ArcFrame.Core.Constraints
             this.wC1 = wC1;
             this.wC2 = wC2;
         }
-
+        /// <inheritdoc/>
         public double[] Residual(IReadOnlyList<CurveSpec> specs)
         {
             //Console.WriteLine($"LeftIndex: {LeftIndex} | RightIndex: {RightIndex}");
@@ -226,7 +256,7 @@ namespace ArcFrame.Core.Constraints
             if (Weight != 1.0) for (int i = 0; i < r.Length; i++) r[i] *= Weight;
             return r;
         }
-
+        /// <inheritdoc/>
         public void ShowInfo()
         {
             Type t = GetType();
@@ -239,9 +269,13 @@ namespace ArcFrame.Core.Constraints
     /// </summary>
     public sealed class SlopeJumpRegularizer : ICompositeConstraint
     {
+        /// <inheritdoc/>
         public ConstraintType Type => ConstraintType.Soft;
+        /// <inheritdoc/>
         public double Weight { get; }
+        /// <inheritdoc/>
         public SlopeJumpRegularizer(double weight) { Weight = weight; }
+        /// <inheritdoc/>
         public double[] Residual(IReadOnlyList<CurveSpec> specs)
         {
             var r = new List<double>();
@@ -258,7 +292,7 @@ namespace ArcFrame.Core.Constraints
             var plc = s.Kappa as IParamCurvatureLaw; if (plc == null) return 0.0;
             var p = plc.GetParams(); return (p.Length >= 2) ? p[1] : 0.0;
         }
-
+        /// <inheritdoc/>
         public void ShowInfo()
         {
             Type t = GetType();
@@ -276,7 +310,9 @@ namespace ArcFrame.Core.Constraints
     /// </summary>
     public sealed class BoundedCurveConstraint : ICompositeConstraint
     {
+        /// <inheritdoc/>
         public ConstraintType Type { get; } = ConstraintType.Soft;
+        /// <inheritdoc/>
         public double Weight { get; }
 
         private readonly CurvePolylineCache _left;
@@ -284,7 +320,7 @@ namespace ArcFrame.Core.Constraints
         private readonly int _searchWin;
         private readonly double _ds;
         private readonly double _buffer;
-
+        /// <inheritdoc/>
         public void ShowInfo()
         {
             Type t = GetType();
@@ -300,6 +336,7 @@ namespace ArcFrame.Core.Constraints
         /// </summary>
         /// <param name="leftBoundary">Left boundary (looking forward along the track)</param>
         /// <param name="rightBoundary">Right boundary</param>
+        /// <param name="buffer">the minimum acceptable buffer inside of the boundary</param>
         /// <param name="weight">penalty weight</param>
         /// <param name="ds">trial sampling step along composite</param>
         /// <param name="samplesPerBound">polyline samples per boundary curve</param>
@@ -352,7 +389,7 @@ namespace ArcFrame.Core.Constraints
                 Helpers.PrintVector(rightP2);
             }*/
         }
-
+        /// <inheritdoc/>
         public double[] Residual(IReadOnlyList<CurveSpec> specs)
         {
             var curves = new CachedIntrinsicCurve[specs.Count];

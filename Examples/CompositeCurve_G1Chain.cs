@@ -9,6 +9,9 @@ namespace ArcFrame.Examples
     /// </summary>
     public class CompositeCurve_G1Chain
     {
+        /// <summary>
+        /// Example
+        /// </summary>
         public static void Main()
         {
             double[] center = { 0, 0, 0 };

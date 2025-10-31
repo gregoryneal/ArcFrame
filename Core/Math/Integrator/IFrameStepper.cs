@@ -2,6 +2,9 @@
 
 namespace ArcFrame.Core.Math
 {
+    /// <summary>
+    /// Interface for a frame stepper, a class which integrates a pose along a curve.
+    /// </summary>
     public interface IFrameStepper
     {
         /// <summary>

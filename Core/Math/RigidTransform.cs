@@ -7,12 +7,27 @@ namespace ArcFrame.Core.Math
     /// </summary>
     public sealed class RigidTransform
     {
+        /// <summary>
+        /// The dimension of the transformation.
+        /// </summary>
         public int N { get; }
         //rotation in N dimensions
+        /// <summary>
+        /// The rotation matrix of the transformation.
+        /// </summary>
         public double[,] R { get; }
         //translation in N dimensions
+        /// <summary>
+        /// The translation vector of the transformation.
+        /// </summary>
         public double[] T { get; }
 
+        /// <summary>
+        /// Create a new transform given a rotation matrix and translation.
+        /// </summary>
+        /// <param name="R"></param>
+        /// <param name="T"></param>
+        /// <exception cref="ArgumentException"></exception>
         public RigidTransform(double[,] R, double[] T)
         {
             int n0 = R.GetLength(0);
@@ -132,6 +147,9 @@ namespace ArcFrame.Core.Math
             Console.WriteLine("]");
         }
 
+        /// <summary>
+        /// Helper to print the translation vector to the console.
+        /// </summary>
         public void PrintT()
         {
             Console.Write("[");
@@ -184,9 +202,20 @@ namespace ArcFrame.Core.Math
             return new RigidTransform(R, t);
         }
 
+        /// <summary>
+        /// Create a roll transformation in 3D in the XY plane.
+        /// </summary>
+        /// <param name="n"></param>
+        /// <param name="angle"></param>
+        /// <param name="pivotX"></param>
+        /// <param name="pivotY"></param>
+        /// <param name="tx"></param>
+        /// <param name="ty"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static RigidTransform FromRollXY(int n, double angle, double pivotX, double pivotY, double tx = 0, double ty = 0)
         {
-            if (n < 3) throw new ArgumentException("N must be >= 3 for XZ yaw");
+            if (n < 3) throw new ArgumentException("N must be >= 3 for XY roll");
             var R = Identity(n).R; // start as identity
             double c = System.Math.Cos(angle), s = System.Math.Sin(angle);
             // 2x2 rotation in (x,y) i.e., indices (0,1)
@@ -201,6 +230,17 @@ namespace ArcFrame.Core.Math
             return new RigidTransform(R, t);
         }
 
+        /// <summary>
+        /// Create a pitch transformation in 3D in the YZ plane.
+        /// </summary>
+        /// <param name="n"></param>
+        /// <param name="angle"></param>
+        /// <param name="pivotY"></param>
+        /// <param name="pivotZ"></param>
+        /// <param name="ty"></param>
+        /// <param name="tz"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static RigidTransform FromPitchYZ(int n, double angle, double pivotY, double pivotZ, double ty = 0, double tz = 0)
         {
             if (n < 3) throw new ArgumentException("N must be >= 3 for XZ yaw");
@@ -218,6 +258,15 @@ namespace ArcFrame.Core.Math
             return new RigidTransform(R, t);
         }
 
+        /// <summary>
+        /// Create a 2D rotation transorm.
+        /// </summary>
+        /// <param name="angle"></param>
+        /// <param name="pivotX"></param>
+        /// <param name="pivotY"></param>
+        /// <param name="tx"></param>
+        /// <param name="ty"></param>
+        /// <returns></returns>
         public static RigidTransform Rotation2D(double angle, double pivotX, double pivotY, double tx = 0, double ty = 0)
         {
             var R = Identity(2).R;
@@ -236,10 +285,22 @@ namespace ArcFrame.Core.Math
         }
     }
 
+    /// <summary>
+    /// Extension methods for the rigid transforms.
+    /// </summary>
     public static class RigitTransformExtensions
     {
         // Expand a smaller transform to 'targetN' by block-diagonal identity and zero padding.
         // axisMap selects which curve axes the small transform acts on (default: first M axes).
+
+        /// <summary>
+        /// Expand a smaller transformation into a target dimension N, with optional axis remapping.
+        /// </summary>
+        /// <param name="xfSmall"></param>
+        /// <param name="targetN"></param>
+        /// <param name="axisMap"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static RigidTransform ExpandedTo(this RigidTransform xfSmall, int targetN, int[]? axisMap = null)
         {
             int M = xfSmall.N;

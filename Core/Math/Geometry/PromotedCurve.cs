@@ -14,17 +14,28 @@ namespace ArcFrame.Core.Geometry
         private readonly int _N;
         private readonly int[] _map; // length = inner.Dimension, indices in [0,_N)
 
+        /// <summary>
+        /// Create an embedded curve with an optional axis remapping.
+        /// </summary>
+        /// <param name="inner"></param>
+        /// <param name="targetN"></param>
+        /// <param name="axisMap"></param>
+        /// <exception cref="ArgumentException"></exception>
         public PromotedCurve(IArcLengthCurve inner, int targetN, int[]? axisMap = null)
         {
             _inner = inner; _N = targetN;
             if (targetN < inner.Dimension) throw new ArgumentException();
             _map = axisMap ?? DefaultMap(inner.Dimension, targetN);
         }
+        /// <inheritdoc/>
         public int Dimension => _N;
+        /// <inheritdoc/>
         public double Length => _inner.Length;
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
-
+        /// <inheritdoc/>
         public Sample Evaluate(double s)
         {
             var q = _inner.Evaluate(s);

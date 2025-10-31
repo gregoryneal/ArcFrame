@@ -7,6 +7,12 @@ namespace ArcFrame.Core.Math.Geometry.Splines
     /// </summary>
     public class BezierSpline : Spline
     {
+        /// <summary>
+        /// Create the cubic bezier curve with a set of control points.
+        /// </summary>
+        /// <param name="controlPoints"></param>
+        /// <param name="frame"></param>
+        /// <exception cref="ArgumentException"></exception>
         public BezierSpline(double[][] controlPoints, FrameModel frame = FrameModel.Frenet) : base(controlPoints, ConstructBasis(), frame)
         {
             if ((controlPoints.Length - 1) % 3 != 0) throw new ArgumentException("BezierSpline requires 3n+1 control points.");
@@ -23,7 +29,12 @@ namespace ArcFrame.Core.Math.Geometry.Splines
             };
         }
 
-        // stride 3 segmentation vs stride 1 in original implementation
+        /// <summary>
+        /// Given a parameter t in [0, 1] return the start segment index for a 
+        /// stride 3 control point window [pi, pi+1, pi+2, pi+3].
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
         protected override (int k, double u) Locate(double t)
         {
             t = System.Math.Clamp(t, 0, 1);
@@ -33,6 +44,12 @@ namespace ArcFrame.Core.Math.Geometry.Splines
             return (3 * i, seg - i);
         }
 
+        /// <summary>
+        /// Create a stride 3 window of control points
+        /// [pi, pi+1, pi+2, pi+3]
+        /// </summary>
+        /// <param name="cpi"></param>
+        /// <returns></returns>
         protected override double[,] CreateG(int cpi)
         {
             // cpi is already 3*i

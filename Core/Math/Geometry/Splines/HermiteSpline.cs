@@ -21,6 +21,11 @@ namespace ArcFrame.Core.Math.Geometry.Splines
                 throw new ArgumentException("HermiteSpline: tangents length must match points length.");
         }
 
+        /// <summary>
+        /// Locate the start index of the control point array given the parameter t in [0, 1].
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
         protected override (int k, double u) Locate(double t)
         {
             t = System.Math.Clamp(t, 0, 1);
@@ -41,6 +46,12 @@ namespace ArcFrame.Core.Math.Geometry.Splines
             return (cpi, u);
         }
 
+        /// <summary>
+        /// Pack the points and tangents together.
+        /// </summary>
+        /// <param name="pts"></param>
+        /// <param name="tans"></param>
+        /// <returns></returns>
         private static double[][] Pack(double[][] pts, double[][] tans)
         {
             int segs = pts.Length - 1;

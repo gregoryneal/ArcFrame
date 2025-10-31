@@ -18,21 +18,54 @@ namespace ArcFrame.Solvers.Core
     /// </summary>
     public sealed class IterationContext : IDisposable
     {
+        /// <summary>
+        /// Specs
+        /// </summary>
         public IReadOnlyList<CurveSpec> Specs { get; }
+        /// <summary>
+        /// Curves
+        /// </summary>
         public IArcLengthCurve[] Curves { get; }
 
+        /// <summary>
+        /// The prefix of the curve
+        /// </summary>
         public double[] Prefix { get; }    // prefix[i] = sum_{k< i} Length_k
+        /// <summary>
+        /// Total curve length
+        /// </summary>
         public double TotalLength { get; }
+        /// <summary>
+        /// Sampling step
+        /// </summary>
         public double Ds { get; }        // sampling step used
+        /// <summary>
+        /// Samples to take
+        /// </summary>
         public int SampleCount { get; }
+        /// <summary>
+        /// use a large ds vs a small one.
+        /// </summary>
         public bool FastMode { get; }  // handy toggle for coarse vs fine
 
         // Global samples in arclength over the concatenated curve
+        /// <summary>
+        /// Global sample arc length
+        /// </summary>
         public double[] SGlob { get; }     // size M
+        /// <summary>
+        /// Segment index
+        /// </summary>
         public int[] SegIdx { get; }    // size M
+        /// <summary>
+        /// Local arc lengths
+        /// </summary>
         public double[] SLocal { get; }    // size M
 
         // Shared evaluations (size M)
+        /// <summary>
+        /// Sample cache.
+        /// </summary>
         public Sample[] S { get; }       // samples
 
         /// <summary>
@@ -49,8 +82,7 @@ namespace ArcFrame.Solvers.Core
         /// <param name="sGlob"></param>
         /// <param name="segIdx"></param>
         /// <param name="sLocal"></param>
-        /// <param name="p"></param>
-        /// <param name="r"></param>
+        /// <param name="s"></param>
         private IterationContext(IReadOnlyList<CurveSpec> specs,
                                  IArcLengthCurve[] curves,
                                  double[] prefix, double Ltot,
@@ -71,6 +103,14 @@ namespace ArcFrame.Solvers.Core
             SampleCount = sGlob.Length;
         }
 
+        /// <summary>
+        /// Build the context from specs and a sample step size.
+        /// </summary>
+        /// <param name="specs"></param>
+        /// <param name="ds"></param>
+        /// <param name="fastMode"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static IterationContext Build(IReadOnlyList<CurveSpec> specs, double ds, bool fastMode)
         {
             if (specs == null || specs.Count == 0)
@@ -116,6 +156,9 @@ namespace ArcFrame.Solvers.Core
             return new IterationContext(specs, curves, prefix, Ltot, ds, fastMode, sGlob, segIdx, sLocal, S);
         }
 
+        /// <summary>
+        /// Dispose of any disposables here
+        /// </summary>
         public void Dispose()
         {
             // if we use Array.Pool or something to optimize even more we might need to dispose of them.

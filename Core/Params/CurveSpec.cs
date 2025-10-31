@@ -35,6 +35,16 @@ namespace ArcFrame.Core.Params
         /// </summary>
         public FrameModel Frame { get; }
 
+        /// <summary>
+        /// Define an intrinsic curve with its dimension, length and other parameters. Also includes extrinsic properties such as
+        /// postition and orientation.
+        /// </summary>
+        /// <param name="n"></param>
+        /// <param name="length"></param>
+        /// <param name="p0"></param>
+        /// <param name="r0"></param>
+        /// <param name="kappa"></param>
+        /// <param name="frame"></param>
         public CurveSpec(int n, double length, double[] p0, double[,] r0, ICurvatureLaw kappa, FrameModel frame)
         {
             N = n;
@@ -101,7 +111,9 @@ namespace ArcFrame.Core.Params
                 return new IntrinsicCurve(this);
             }
         }
-
+        /// <summary>
+        /// Display information about this CurveSpec in the console.
+        /// </summary>
         public void ShowInfo()
         {
             Console.WriteLine();

@@ -8,6 +8,11 @@ namespace ArcFrame.Solvers
     /// Zero vector => Identity. Stable for LM with FD Jacobians.
     internal static class SOParam
     {
+        /// <summary>
+        /// The parameter count of the NxN matrix.
+        /// </summary>
+        /// <param name="N"></param>
+        /// <returns></returns>
         public static int ParamCount(int N) => (N * (N - 1)) / 2;
 
         /// Build rotation from w (applied on the LEFT of the seed).

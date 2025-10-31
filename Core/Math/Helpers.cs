@@ -107,17 +107,6 @@ namespace ArcFrame.Core.Math
             }
             return mx;
         }
-
-        /// <summary>
-        /// Length of a vector.
-        /// </summary>
-        /// <param name="a"></param>
-        /// <returns></returns>
-        public static double Len(double[] a)
-        {
-            return System.Math.Sqrt(Len2(a));
-        }
-
         /// <summary>
         /// Add two N dimensional vectors
         /// </summary>
@@ -262,6 +251,13 @@ namespace ArcFrame.Core.Math
             return c;
         }
 
+        /// <summary>
+        /// Multiply two matrices.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static double[,] Multiply(double[,] a, double[,] b)
         {
             //a is n x k, b is l x m. In order to multiply we need k = l
@@ -286,6 +282,12 @@ namespace ArcFrame.Core.Math
             }
             return Z;
         }
+        /// <summary>
+        /// Multiply a matrix and a scalar.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static double[,] Multiply(double a, double[,] b)
         {
             int n = b.GetLength(0);
@@ -301,12 +303,25 @@ namespace ArcFrame.Core.Math
             return Z;
         }
 
+        /// <summary>
+        /// Multiply a matrix and a scalar.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public static double[,] Multiply(double[,] a, double b)
         {
             return Multiply(b, a);
         }
-
-        public static double Norm(double[] v) => System.Math.Sqrt(Dot(v, v));
+        /// <summary>
+        /// Length of a vector. Same as the norm.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <returns></returns>
+        public static double Len(double[] a)
+        {
+            return System.Math.Sqrt(Len2(a));
+        }
 
         //Gram-Schmidt style orthonormalization for building an N dimensional frame from
         //lower dimensional starting vectors. 
@@ -376,11 +391,6 @@ namespace ArcFrame.Core.Math
         }
 
         //===== End Gram-Schmidt style orthonormalization functions
-
-        public static double Clamp(double value, double min, double max)
-        {
-            return value < min ? min : (value > max ? max : value);
-        }
 
         /// <summary>
         /// Performs the matrix calculation:
@@ -492,6 +502,11 @@ namespace ArcFrame.Core.Math
                 return false;
             }
         }
+        /// <summary>
+        /// Take the transpose of a matrix.
+        /// </summary>
+        /// <param name="matrix"></param>
+        /// <returns></returns>
         public static double[,] Transpose(double[,] matrix)
         {
             int rows = matrix.GetLength(0);
@@ -573,6 +588,10 @@ namespace ArcFrame.Core.Math
             return Helpers.Multiply(sum, 1 / System.Math.Pow(h, n));
         }
 
+        /// <summary>
+        /// Helper to print a matrix to the console.
+        /// </summary>
+        /// <param name="R"></param>
         public static void PrintMat(double[,] R)
         {
             int N = R.GetLength(0);
@@ -592,6 +611,10 @@ namespace ArcFrame.Core.Math
             Console.WriteLine("]");
         }
 
+        /// <summary>
+        /// Helper to print a vector to the console.
+        /// </summary>
+        /// <param name="T"></param>
         public static void PrintVector(double[] T)
         {
             int N = T.Length;

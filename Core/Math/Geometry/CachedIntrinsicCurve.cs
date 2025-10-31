@@ -22,6 +22,13 @@ namespace ArcFrame.Core.Geometry
         private readonly List<double[]> _P = new List<double[]>();
         private readonly List<double[,]> _R = new List<double[,]>();
 
+        /// <summary>
+        /// Create a cached intrinsic curve with optional integrator.
+        /// </summary>
+        /// <param name="spec"></param>
+        /// <param name="checkpointSpacing"></param>
+        /// <param name="stepper"></param>
+        /// <param name="opt"></param>
         public CachedIntrinsicCurve(CurveSpec spec, double checkpointSpacing = 0.25, IFrameStepper? stepper = null, IntegratorOptions? opt = null)
         {
             _spec = spec;
@@ -35,10 +42,11 @@ namespace ArcFrame.Core.Geometry
             _P.Add((double[])spec.P0.Clone());
             _R.Add((double[,])spec.R0.Clone());
         }
-
+        /// <inheritdoc/>
         public int Dimension => _inner.Dimension;
+        /// <inheritdoc/>
         public double Length => _inner.Length;
-
+        /// <inheritdoc/>
         public Sample Evaluate(double s)
         {
             s = System.Math.Clamp(s, 0.0, Length);
@@ -108,9 +116,9 @@ namespace ArcFrame.Core.Geometry
             }
             return lo;
         }
-
+        /// <inheritdoc/>
         public double[] Position(double s) => Evaluate(s).P;
-
+        /// <inheritdoc/>
         public double[] Tangent(double s) => Evaluate(s).T;
 
         /// <summary>

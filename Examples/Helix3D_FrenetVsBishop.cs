@@ -15,6 +15,9 @@ namespace ArcFrame.Examples
     /// </summary>
     public class Helix3D_FrenetVsBishop
     {
+        /// <summary>
+        /// Example
+        /// </summary>
         public static void Main()
         {
             // Shared start pose

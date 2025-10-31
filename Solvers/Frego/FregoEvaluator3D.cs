@@ -19,12 +19,14 @@ namespace ArcFrame.Solvers.Frego
     /// </summary>
     public class FregoEvaluator3D : IEvaluator
     {
+
+        /// <inheritdoc/>
         public string Key => "Clothoid3DEvaluator";
-
+        /// <inheritdoc/>
         public string Author => "Marco Frego";
-
+        /// <inheritdoc/>
         public string Reference => "https://doi.org/10.1016/j.amc.2021.126907";
-
+        /// <inheritdoc/>
         public int TargetDimension => 3;
 
         /// <summary>
@@ -60,9 +62,8 @@ namespace ArcFrame.Solvers.Frego
         /// 
         /// Particulars:
         /// Solve above problem with X'(s) = B(s)X(s)
-        ///     where X = | Tx  Nx  Bx  x(s) 0   0 |
-        ///               | Ty  Ny  By   0  y(s) 0 |
-        ///               | Tz  Nz  Bz   0   0 z(s)|
+        ///     where X = [ Tx, Ty, Tz, Nx, Ny, Nz, Bx, By, Bz, x, y, z ]^T
+        ///     
         ///     Take A(s) and embed it in a 4x4 matrix (final column all 0, final row = [1, 0, 0, 0]).
         ///     kronecker multiply that matrix by the 3x3 identity matrix to obtain a 12x12 matrix.
         ///     It's really freakin big. 
@@ -498,7 +499,8 @@ namespace ArcFrame.Solvers.Frego
         /// - X is the kronecker product
         /// - I_3 is the 3x3 identity matrix
         /// </summary>
-        /// <param name="s"></param>
+        /// <param name="k"></param>
+        /// <param name="t"></param>
         /// <returns></returns>
         private double[,] ConstructB(double k, double t)
         {

@@ -12,29 +12,57 @@ namespace ArcFrame.Core.Math.Geometry.Splines
     /// </summary>
     public class Spline : IArcLengthCurve
     {
+        /// <summary>
+        /// The spline control points.
+        /// </summary>
         protected readonly double[][] ControlPoints;
+        /// <summary>
+        /// The arc length table which caches the curve on creation.
+        /// </summary>
         protected readonly ArcLengthTable _table;
+        /// <summary>
+        /// The frame model, frenet or RMF.
+        /// </summary>
         protected readonly FrameModel Frame;
+        /// <summary>
+        /// The start ON frame.
+        /// </summary>
         protected readonly double[,] R0;
+        /// <summary>
+        /// The cached ON frame along the curve.
+        /// </summary>
         protected readonly double[][,] RCache;
+        /// <summary>
+        /// The cached tangents along the curve.
+        /// </summary>
         protected readonly double[] T0;
+        /// <summary>
+        /// The cached normals along the curve.
+        /// </summary>
         protected readonly double[]? N0; // used for RMF
+        /// <summary>
+        /// Number of cache samples to take.
+        /// </summary>
         protected readonly int CacheSamples;
         /// <summary>
         /// Determines the complexity and smoothness of the curve.
         /// This is the highest power of the polynomial used to construct it.
         /// The degree must be less than or equal to the spatial Dimension
-        /// parameter. This is because we build an initial SO(N) frame R0
-        /// 
+        /// parameter. This is because we build an initial SO(N) frame R0.
         /// </summary>
         public int Degree { get; }
+        /// <summary>
+        /// The basis matrix for the spline model.
+        /// </summary>
         public double[,] BasisMatrix { get; }
 
         /// <summary>
         /// The spatial dimension the curve exists in.
         /// </summary>
         public int Dimension { get; }
-
+        /// <summary>
+        /// Cached arc length from the arc length table.
+        /// </summary>
         public double Length => _table.Length;
 
         /// <summary>
@@ -165,7 +193,7 @@ namespace ArcFrame.Core.Math.Geometry.Splines
         ///     our general curvature matrix is K = [N•T', B•N', ...] or in general K[i] = F[i+1]•F'[i] for 0 <= i < N.
         /// 5b) if our ON frame is Bishop and F = [T, N, B, ... ] we must interpolate a cached array of rotation minimized frames.
         /// </summary>
-        /// <param name="s"></param>
+        /// <param name="s">The arc length</param>
         /// <returns></returns>
         public Sample Evaluate(double s)
         {
@@ -278,6 +306,12 @@ namespace ArcFrame.Core.Math.Geometry.Splines
             return Helpers.Multiply(Helpers.Multiply(G, BasisMatrix), tp);
         }
 
+        /// <summary>
+        /// Create a vector [1, u, u^2, ..., u^d]
+        /// </summary>
+        /// <param name="d"></param>
+        /// <param name="u"></param>
+        /// <returns></returns>
         protected static double[] PowerMonomials(int d, double u)
         {
             var U = new double[d + 1];

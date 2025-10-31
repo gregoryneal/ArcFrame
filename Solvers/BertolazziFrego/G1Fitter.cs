@@ -5,12 +5,16 @@ using System;
 
 namespace ArcFrame.Solvers.BertolazziFrego
 {
+    /// <summary>
+    /// Fit a clothoid to a given set of points.
+    /// </summary>
     public class G1Fitter : IFitterG1
     {
+        /// <inheritdoc/>
         public string Key => "BF_G1";
-
+        /// <inheritdoc/>
         public string Author => "Bertolazzi";
-
+        /// <inheritdoc/>
         public string Reference => throw new NotImplementedException();
         /// <summary>
         /// Root finding tolerance
@@ -21,14 +25,19 @@ namespace ArcFrame.Solvers.BertolazziFrego
         /// The type of frame used.
         /// </summary>
         FrameModel Frame;
-
+        /// <summary>
+        /// Create a new instance of a G1Fitter
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <param name="tolerance"></param>
+        /// <param name="maxIterations"></param>
         public G1Fitter(FrameModel frame, double tolerance = 1E-4, int maxIterations = 30)
         {
             ROOT_TOLERANCE = tolerance;
             MAX_ITER = maxIterations;
             Frame = frame;
         }
-
+        /// <inheritdoc/>
         public CurveSpec Fit_G1(double x0, double y0, double t0, double x1, double y1, double t1)
         {
             double dx = x1 - x0;

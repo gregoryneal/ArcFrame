@@ -41,6 +41,10 @@ namespace ArcFrame.Examples
     /// </summary>
     public class BuildBoundedClothoid
     {
+        /// <summary>
+        /// Example
+        /// </summary>
+        /// <returns></returns>
         public static (CompositeCurve[] trialSolutions, CompositeCurve finalCurve, CompositeCurve leftBound, CompositeCurve rightBound) Main()
         {
             double laneWidth = 2;
@@ -76,9 +80,9 @@ namespace ArcFrame.Examples
             double kC1 = 0;
 
             // Create the seed curve and problem.
-            var seedCurve = new HermiteThreeClothoidSolver();
-            HermiteThreeClothoidSolver.Result curveResult = seedCurve.Solve(pC0, tC0, kC0, pC1, tC1, kC1, 0, 800);
-            var problem = new CompositeCurveProblem(curveResult.Segments);
+            var seedCurve = new Hermite2DThreeClothoidSolver();
+            CompositeCurveSolverResult curveResult = seedCurve.Solve(pC0, tC0, kC0, pC1, tC1, kC1, 0, 800);
+            var problem = new CompositeCurveProblem(curveResult.FinalSolution);
 
             // Now we need to add constraints to the problem:
             // Start / End pose
