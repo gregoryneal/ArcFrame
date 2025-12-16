@@ -8,30 +8,62 @@ namespace ArcFrame.Core.Math.Geometry.Splines
     public class HermiteSpline : Spline
     {
         /// <summary>
+        /// Packed layout: [Pi, Pi+1, Mi, Mi+1] per segment ⇒ 4 columns per segment
+        /// </summary>
+        public override int ComputeSegmentCount() => System.Math.Max(1, ControlPoints.Length / 4);
+
+        /// <inheritdoc/>
+        public override int GetControlPointStartForSegment(int segIndex)
+        {
+            // in precomputed _gbCache, use blocks 0, 4, 8, ..
+            return 4 * segIndex;
+        }
+
+        /// <summary>
         /// Pack the points and tangents into a single array since tangents are used as control points in the matrix multiplication.
         /// </summary>
         /// <param name="points"></param>
         /// <param name="tangents"></param>
         /// <param name="frame"></param>
+        /// <param name="fastMode"></param>
+        /// <param name="cacheSamplesOverride"></param>
         /// <exception cref="ArgumentException"></exception>
-        public HermiteSpline(double[][] points, double[][] tangents, FrameModel frame = FrameModel.Frenet)
-        : base(Pack(points, tangents), ConstructBasis(), frame)
+        public HermiteSpline(double[][] points, 
+            double[][] tangents, 
+            FrameModel frame = FrameModel.Frenet,
+            bool fastMode = false,
+            int cacheSamplesOverride = 0)
+        : base(Pack(points, tangents), ConstructBasis(), frame, fastMode, cacheSamplesOverride)
         {
             if (tangents.Length != points.Length)
                 throw new ArgumentException("HermiteSpline: tangents length must match points length.");
         }
 
         /// <summary>
+        /// Use control points that are already pre packed.
+        /// </summary>
+        /// <param name="ptsAndTangents"></param>
+        /// <param name="frame"></param>
+        /// <param name="fastMode"></param>
+        /// <param name="cacheSamplesOverride"></param>
+        public HermiteSpline(double[][] ptsAndTangents, 
+            FrameModel frame = FrameModel.Frenet,
+            bool fastMode = false,
+            int cacheSamplesOverride = 0)
+        : base(ptsAndTangents, ConstructBasis(), frame, fastMode, cacheSamplesOverride) { }
+
+        /// <summary>
         /// Locate the start index of the control point array given the parameter t in [0, 1].
         /// </summary>
         /// <param name="t"></param>
         /// <returns></returns>
+        /*
         protected override (int k, double u) Locate(double t)
         {
             t = System.Math.Clamp(t, 0, 1);
 
             // Packed layout: [Pi, Pi+1, Mi, Mi+1] per segment ⇒ 4 columns per segment
-            int segCount = System.Math.Max(1, ControlPoints.Length / 4);
+            int segCount = ComputeSegmentCount();
 
             // Map to segment index in [0..segCount-1] and local u in [0,1)
             double seg = t * segCount;
@@ -44,7 +76,7 @@ namespace ArcFrame.Core.Math.Geometry.Splines
             int cpi = 4 * i;
 
             return (cpi, u);
-        }
+        }*/
 
         /// <summary>
         /// Pack the points and tangents together.

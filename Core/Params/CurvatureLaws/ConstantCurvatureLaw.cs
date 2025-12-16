@@ -42,7 +42,7 @@
         /// <inheritdoc/>
         public ICurvatureLaw CloneWithParams(double[] p)
         {
-            return new ConstantCurvatureLaw((double[])p.Clone());
+            return new ConstantCurvatureLaw(p);
         }
     }
 }

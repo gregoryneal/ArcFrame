@@ -8,6 +8,7 @@ namespace ArcFrame.Core.Geometry.Splines
     /// </summary>
     public class CatmullRomSpline : Spline
     {
+        //public override int SegmentCount => ControlPoints.Length - Degree;
         /// <summary>
         /// Controls the tangent at the control points. 
         /// Higher values -> flatter tangents at the control points
@@ -22,7 +23,13 @@ namespace ArcFrame.Core.Geometry.Splines
         /// <param name="controlPoints"></param>
         /// <param name="tension"></param>
         /// <param name="frame"></param>
-        public CatmullRomSpline(double[][] controlPoints, double tension = 0.5, FrameModel frame = FrameModel.Frenet) : base(controlPoints, ConstructBasis(tension), frame)
+        /// <param name="fastMode"></param>
+        /// <param name="cacheSamplesOverride"></param>
+        public CatmullRomSpline(double[][] controlPoints, 
+            double tension = 0.5, 
+            FrameModel frame = FrameModel.Frenet,
+            bool fastMode = false,
+            int cacheSamplesOverride = 0) : base(controlPoints, ConstructBasis(tension), frame, fastMode, cacheSamplesOverride)
         { Tension = tension; }
 
 

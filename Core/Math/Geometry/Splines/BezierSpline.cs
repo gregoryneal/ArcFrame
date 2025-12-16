@@ -7,13 +7,35 @@ namespace ArcFrame.Core.Math.Geometry.Splines
     /// </summary>
     public class BezierSpline : Spline
     {
+        /// <inheritdoc/>
+        public override int ComputeSegmentCount()
+        {
+            int cps = ControlPoints.Length;
+            if ((cps - 1) % 3 != 0)
+                throw new ArgumentException("BezierSpline requires 3n+1 control points.");
+
+            return (cps - 1) / 3;
+        }
+
+        /// <inheritdoc/>
+        public override int GetControlPointStartForSegment(int segIndex)
+        {
+            // in precomputed _gbCache, use blocks 0, 3, 6, ..
+            return 3 * segIndex;
+        }
+
         /// <summary>
         /// Create the cubic bezier curve with a set of control points.
         /// </summary>
         /// <param name="controlPoints"></param>
         /// <param name="frame"></param>
+        /// <param name="fastMode"></param>
+        /// <param name="cacheSamplesOverride"></param>
         /// <exception cref="ArgumentException"></exception>
-        public BezierSpline(double[][] controlPoints, FrameModel frame = FrameModel.Frenet) : base(controlPoints, ConstructBasis(), frame)
+        public BezierSpline(double[][] controlPoints, 
+                            FrameModel frame = FrameModel.Frenet,
+                            bool fastMode = false,
+                            int cacheSamplesOverride = 0) : base(controlPoints, ConstructBasis(), frame, fastMode, cacheSamplesOverride)
         {
             if ((controlPoints.Length - 1) % 3 != 0) throw new ArgumentException("BezierSpline requires 3n+1 control points.");
         }
@@ -35,14 +57,15 @@ namespace ArcFrame.Core.Math.Geometry.Splines
         /// </summary>
         /// <param name="t"></param>
         /// <returns></returns>
+        /*
         protected override (int k, double u) Locate(double t)
         {
             t = System.Math.Clamp(t, 0, 1);
-            int segCount = (ControlPoints.Length - 1) / 3;
+            int segCount = ComputeSegmentCount();
             double seg = t * segCount;
             int i = System.Math.Min(segCount - 1, (int)System.Math.Floor(seg));
             return (3 * i, seg - i);
-        }
+        }*/
 
         /// <summary>
         /// Create a stride 3 window of control points

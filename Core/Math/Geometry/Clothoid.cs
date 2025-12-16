@@ -2,6 +2,9 @@
 using ArcFrame.Core.Params;
 using ArcFrame.Core.Results;
 using ArcFrame.Solvers;
+using ArcFrame.Solvers.BertolazziFrego;
+using ArcFrame.Solvers.Frego;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ArcFrame.Core.Geometry
 {
@@ -19,7 +22,10 @@ namespace ArcFrame.Core.Geometry
         private readonly CurveSpec _p;
         private readonly IEvaluator _eval;
         private readonly IFrameStepper? _stepper = null;
-        private readonly IntegratorOptions? _opts = null;
+        /// <summary>
+        /// What options to use for integration
+        /// </summary>
+        public readonly IntegratorOptions? IntegratorOptions = null;
         private readonly bool _useFrameStepper = false;
 
         /// <param name="P">Parameters for the clothoid</param>
@@ -33,7 +39,7 @@ namespace ArcFrame.Core.Geometry
             if (_useFrameStepper)
             {
                 _stepper = new LieGroupMidpointStepper();
-                _opts = IntegratorOptions.Default;
+                IntegratorOptions = IntegratorOptions.Fast;
             }
         }
         /// <inheritdoc/>
@@ -53,7 +59,7 @@ namespace ArcFrame.Core.Geometry
                 var R = (double[,])_p.R0.Clone();
                 double si = 0;
                 while (si < s) {
-                    double h = _opts!.SuggestStep(_p.Kappa.Eval, si, s);
+                    double h = IntegratorOptions!.SuggestStep(_p.Kappa.Eval, si, s);
                     if (h <= 0) break;
                     _stepper!.Step(ref P, ref R, _p.Kappa.Eval, si, h, _p.Frame);
                     si += h;
@@ -136,10 +142,10 @@ namespace ArcFrame.Core.Geometry
         /// <returns></returns>
         public static Clothoid From3D(Vec3d P, Vec3d T, Vec3d N, Vec3d B, double k0, double dk, double tau0, double dtau, double L, IEvaluator evaluator, FrameModel frame = FrameModel.Frenet)
         {
-            double[] p = new double[] { P.X, P.Y, P.Z };
-            double[] t = new double[] { T.X, T.Y, T.Z };
-            double[] n = new double[] { N.X, N.Y, N.Z };
-            double[] b = new double[] { B.X, B.Y, B.Z }
+            double[] p = new double[] { P.x, P.y, P.z };
+            double[] t = new double[] { T.x, T.y, T.z };
+            double[] n = new double[] { N.x, N.y, N.z };
+            double[] b = new double[] { B.x, B.y, B.z }
             ;
             double[] k0v = { k0, tau0 };
             double[] dkv = { dk, dtau };
@@ -168,6 +174,20 @@ namespace ArcFrame.Core.Geometry
             return new Clothoid(new ClothoidCurveSpec(3, L, P0, R0, law, frame), evaluator);
         }
 
-//        public static Clothoid FitTo
+        /// <summary>
+        /// Tries to find an existing clothoid evaluator for the spec dimension.
+        /// If none are found, it will return a CachedIntrinsicCurve
+        /// </summary>
+        /// <param name="spec"></param>
+        /// <returns></returns>
+        public static IArcLengthCurve FromSpec(CurveSpec spec)
+        {
+            return spec.N switch
+            {
+                2 => new Clothoid(spec, new BFEvaluator()),
+                3 => new Clothoid(spec, new FregoEvaluator3D()),
+                _ => new IntrinsicCurve(spec)
+            };
+        }
     }
 }

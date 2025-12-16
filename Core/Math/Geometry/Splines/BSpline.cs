@@ -10,7 +10,12 @@
         /// </summary>
         /// <param name="controlPoints"></param>
         /// <param name="frame"></param>
-        public BSpline(double[][] controlPoints, FrameModel frame = FrameModel.Frenet) : base(controlPoints, ConstructBasis(), frame) { }
+        /// <param name="fastMode"></param>
+        /// <param name="cacheSamplesOverride"></param>
+        public BSpline(double[][] controlPoints, 
+            FrameModel frame = FrameModel.Frenet,
+            bool fastMode = false,
+            int cacheSamplesOverride = 0) : base(controlPoints, ConstructBasis(), frame, fastMode, cacheSamplesOverride) { }
 
 
         private static double[,] ConstructBasis()

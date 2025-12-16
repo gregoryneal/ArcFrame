@@ -79,6 +79,15 @@ namespace ArcFrame.Core.Math
         /// The default integrator options.
         /// </summary>
         public static IntegratorOptions Default => new IntegratorOptions();
+
+        /// <summary>
+        /// A faster looser integrator
+        /// </summary>
+        public static IntegratorOptions Fast => new IntegratorOptions()
+        {
+            MaxStep = 0.3,
+            ThetaPerStep = 0.25,
+        };
     }
 
 }

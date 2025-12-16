@@ -131,6 +131,41 @@ namespace ArcFrame.Core.Geometry
         }
 
         /// <summary>
+        /// Add a segment with a full ON matching frame.
+        /// </summary>
+        /// <param name="segment"></param>
+        /// <param name="xfUsed"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public CompositeCurve AddG1FullFrame(IArcLengthCurve segment, out RigidTransform xfUsed)
+        {
+            if (_segs.Count == 0)
+            {
+                xfUsed = RigidTransform.Identity(segment.Dimension);
+                return Add(new TransformedCurve(segment, xfUsed));
+            }
+            if (segment.Dimension != Dimension)
+                throw new ArgumentException("Dimension mismatch! New segment must match curve dimension.");
+
+            EnsurePrefix();
+
+            var prev = _segs[^1];
+            var prevEnd = prev.Evaluate(prev.Length); // contains P, T, R, k, s
+            var newStart = segment.Evaluate(0);
+
+            // Full-frame alignment: find R so that R * R_new0 = R_prevEnd
+            double[,] Ralign = Helpers.Multiply(prevEnd.R, Helpers.Transpose(newStart.R));
+
+            // Translation so that the rotated start position sits on the previous end position
+            double[] pRot = Helpers.Multiply(Ralign, newStart.P);
+            double[] T = new double[Dimension];
+            for (int i = 0; i < Dimension; i++) T[i] = prevEnd.P[i] - pRot[i];
+
+            xfUsed = new RigidTransform(Ralign, T);
+            return Add(new TransformedCurve(segment, xfUsed));
+        }
+
+        /// <summary>
         /// Takes a segment and creates a TransformedCurve that holds the input segment and a RigidTransform which ensures the new segment endpoint is aligned
         /// with the previous endpoint, and the new segment tangent is aligned with the previous tangent.
         /// </summary>

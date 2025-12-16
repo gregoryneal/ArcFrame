@@ -13,7 +13,7 @@ namespace ArcFrame.Core.Geometry
     {
         private readonly IntrinsicCurve _inner;
         private readonly IFrameStepper _stepper;
-        private readonly IntegratorOptions _opt;
+        public IntegratorOptions IntegratorOptions;
         private readonly CurveSpec _spec;
         private readonly double _ds; // target checkpoint spacing
 
@@ -34,7 +34,7 @@ namespace ArcFrame.Core.Geometry
             _spec = spec;
             _inner = new IntrinsicCurve(spec, stepper, opt);
             _stepper = stepper ?? new LieGroupMidpointStepper();
-            _opt = opt ?? IntegratorOptions.Default;
+            IntegratorOptions = opt ?? IntegratorOptions.Fast;
             _ds = System.Math.Max(1e-6, checkpointSpacing);
 
             // seed s=0
@@ -56,6 +56,7 @@ namespace ArcFrame.Core.Geometry
 
             // find nearest previous checkpoint
             int idx = UpperBound(_S, s) - 1; // _S[idx] <= s < _S[idx+1]
+            idx = System.Math.Clamp(idx, 0, _S.Count - 1);
             var P = (double[])_P[idx].Clone();
             var R = (double[,])_R[idx].Clone();
 
@@ -63,7 +64,7 @@ namespace ArcFrame.Core.Geometry
             double s0 = _S[idx];
             while (s0 < s - 0)
             {
-                double h = _opt.SuggestStep(_spec.Kappa.Eval, s0, s);
+                double h = IntegratorOptions.SuggestStep(_spec.Kappa.Eval, s0, s);
                 if (s0 + h > s) h = s - s0;
                 _stepper.Step(ref P, ref R, _spec.Kappa.Eval, s0, h, _spec.Frame);
                 s0 += h;
@@ -92,7 +93,7 @@ namespace ArcFrame.Core.Geometry
                 double s0 = sLast;
                 while (s0 < sNext)
                 {
-                    double h = _opt.SuggestStep(_spec.Kappa.Eval, s0, sNext);
+                    double h = IntegratorOptions.SuggestStep(_spec.Kappa.Eval, s0, sNext);
                     if (s0 + h > sNext) h = sNext - s0;
                     _stepper.Step(ref P, ref R, _spec.Kappa.Eval, s0, h, _spec.Frame);
                     s0 += h;

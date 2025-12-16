@@ -14,11 +14,11 @@ namespace ArcFrame.Core.Geometry
         private readonly int _n;
 
         /// <summary>
-        /// Create a line from a to b.
+        /// Create a line from a to b. With optional normal direction hint.
         /// </summary>
         /// <param name="a"></param>
         /// <param name="b"></param>
-        public Line(double[] a, double[] b)
+        public Line(double[] a, double[] b, double[]? normalHint = null)
         {
             _n = a.Length;
             _a = (double[])a.Clone();
@@ -43,7 +43,7 @@ namespace ArcFrame.Core.Geometry
             else _t[0] = 1;
 
             double[] T = Helpers.Normalize(Helpers.Subtract(b, a));
-            R = ONFrame.R0_FromT_Complete(T);
+            R = ONFrame.R0_FromT_Complete(T, normalHint);
         }
 
         /// <summary>

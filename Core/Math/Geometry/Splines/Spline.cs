@@ -1,6 +1,8 @@
 ﻿using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Geometry.Splines;
+using ArcFrame.Core.Kernels;
 using ArcFrame.Core.Results;
+using System;
 using System.Collections.Generic;
 
 
@@ -13,21 +15,42 @@ namespace ArcFrame.Core.Math.Geometry.Splines
     public class Spline : IArcLengthCurve
     {
         /// <summary>
+        /// How many segments should Burst use?
+        /// </summary>
+        //public virtual int BurstSegmentCount => SegmentCount;
+
+        /// <summary>
+        /// Map segment index -> ControlPoint index
+        /// </summary>
+        /// <param name="segIndex"></param>
+        /// <returns></returns>
+        public virtual int GetControlPointStartForSegment(int segIndex) => segIndex;
+
+        /// <summary>
+        /// The number of spline segments. Default: sliding window 
+        /// </summary>
+        public virtual int ComputeSegmentCount() => System.Math.Max(1, ControlPoints.Length - Degree);
+
+        /// <summary>
         /// The spline control points.
         /// </summary>
-        protected readonly double[][] ControlPoints;
+        public readonly double[][] ControlPoints;
         /// <summary>
         /// The arc length table which caches the curve on creation.
         /// </summary>
         protected readonly ArcLengthTable _table;
         /// <summary>
+        /// Accessor for the internal ArcLengthTable
+        /// </summary>
+        public ArcLengthTable Table => _table;
+        /// <summary>
         /// The frame model, frenet or RMF.
         /// </summary>
-        protected readonly FrameModel Frame;
+        public readonly FrameModel Frame;
         /// <summary>
         /// The start ON frame.
         /// </summary>
-        protected readonly double[,] R0;
+        public readonly double[,] R0;
         /// <summary>
         /// The cached ON frame along the curve.
         /// </summary>
@@ -66,34 +89,75 @@ namespace ArcFrame.Core.Math.Geometry.Splines
         public double Length => _table.Length;
 
         /// <summary>
+        /// Fast mode disables frame calculations, ensuring only curve position is calculated.
+        /// This is way faster because splines are kind of hacky in this library ngl.
+        /// </summary>
+        public bool FastMode { get; }
+
+        /// <summary>
+        /// Precomputed GB matrices per segment start index (cpi).
+        /// Index = control point index returned by Locate(t).
+        /// Each matrix is Dimension x (Degree+1).
+        /// </summary>
+        private readonly double[][,] _gbCache;
+
+        /// <summary>
+        /// Get the computed GB cache, G is the control point matrix, and B the basis matrix.
+        /// </summary>
+        public double[][,] GBCache => _gbCache;
+
+        /// <summary>
+        /// Scratch buffer for [1, u, u^2, ..., u^Degree].
+        /// Reused across Position/Evaluate calls (not thread-safe).
+        /// </summary>
+        private readonly double[] _uScratch;
+
+        /// <summary>
+        /// Scratch buffer for RMF interpolation blending (Dimension x Dimension).
+        /// Only used in non-fast Bishop mode.
+        /// </summary>
+        private readonly double[,] _rmfBlendScratch;
+
+        /// <summary>
         /// Generate an arc length table
         /// </summary>
-        public Spline(double[][] controlPoints, double[,] basisMatrix, FrameModel frame = FrameModel.Frenet)
+        public Spline(double[][] controlPoints, double[,] basisMatrix, FrameModel frame = FrameModel.Frenet, bool fastMode = false, int cacheSamplesOverride = 0)
         {
+            //if (controlPoints.Length <= 0) return;
             BasisMatrix = basisMatrix;
             Degree = BasisMatrix.GetLength(0) - 1;
-            // Handle high degree splines in low dimensional spaces
-            /*
-            if (Degree > controlPoints[0].Length)
-            {
-                // Promote the control points into the new dimension, pad with 0s basically
-                double[][] promotedControlPoints = new double[controlPoints.Length][];
-                for (int i = 0; i < controlPoints.Length; i++)
-                {
-                    double[] v = new double[Degree];
-                    for (int j = 0; j < controlPoints[i].Length; j++)
-                    {
-                        v[j] = controlPoints[i][j];
-                    }
-                    promotedControlPoints[i] = v;
-                }
-
-                controlPoints = promotedControlPoints;
-            }*/
 
             ControlPoints = controlPoints;
             Dimension = ControlPoints[0].Length;
             Frame = frame;
+            FastMode = fastMode;
+
+            // ------------------------------------------------------------------
+            // Precompute GB for all used segments
+            // ------------------------------------------------------------------
+            int _numSegments = ComputeSegmentCount();
+            _gbCache = new double[_numSegments][,];
+            for (int i = 0; i < _numSegments; i++)
+            {
+                int cpi = GetControlPointStartForSegment(i);
+                double[,] Gseg = CreateG(cpi);
+                _gbCache[i] = Helpers.Multiply(Gseg, BasisMatrix);
+            }
+            /*
+            int maxSegStart = System.Math.Max(0, ControlPoints.Length - (Degree + 1));
+            _gbCache = new double[maxSegStart + 1][,];
+
+            for (int cpi = 0; cpi <= maxSegStart; cpi++)
+            {
+                // This uses the virtual CreateG, so Hermite/Bezier/etc. all
+                // get the correct control point layout.
+                double[,] Gseg = CreateG(cpi);
+                _gbCache[cpi] = Helpers.Multiply(Gseg, BasisMatrix);
+            }*/
+
+            // Scratch for monomials and RMF interpolation
+            _uScratch = new double[Degree + 1];
+            _rmfBlendScratch = new double[Dimension, Dimension];
 
             // Scale arc length table number of samples by polyline length of control points
             double len = 0;
@@ -101,79 +165,97 @@ namespace ArcFrame.Core.Math.Geometry.Splines
             {
                 len += Helpers.Len(Helpers.Subtract(controlPoints[i + 1], controlPoints[i]));
             }
+
             // N samples per unit arc length
-            CacheSamples = System.Math.Max(64, (int)System.Math.Round(len) * 256 + 1);
+            if (cacheSamplesOverride > 0) CacheSamples = cacheSamplesOverride;
+            else if (FastMode) CacheSamples = System.Math.Max(32, (int)System.Math.Round(len) * 64 + 1);
+            else CacheSamples = System.Math.Max(64, (int)System.Math.Round(len) * 256 + 1);
+
             _table = new ArcLengthTable(Position, CacheSamples);
-            RCache = new double[CacheSamples][,];
 
-            // FD derivative of the spline at t = 0
-            double[][] derivatives = new double[Degree][];
-            // Build ON frame at t = 0
-            R0 = new double[Dimension, Degree];
-            T0 = Helpers.Differentiate(Position, 0, 1, Dimension);
-            ONFrame.SetCol(R0, 0, Helpers.Normalize(T0));
-            derivatives[0] = T0;
+            if (!FastMode) {
+                RCache = new double[CacheSamples][,];
 
-            // Calculate derivatives beyong tangent
-            for (int d = 1; d < Degree; d++)
-            {
-                //d+1th derivative
-                derivatives[d] = Helpers.Differentiate(Position, 0, d + 1, Dimension);
-                ONFrame.SetCol(R0, d, Helpers.Normalize(derivatives[d]));
-            }
-            // Find the other ON bases if they exist, now R0 is square
-            if (Dimension > Degree) R0 = ONFrame.R0_FromR_Complete(R0);
+                // FD derivative of the spline at t = 0
+                double[][] derivatives = new double[Degree][];
+                // Build ON frame at t = 0
+                R0 = new double[Dimension, Degree];
+                T0 = Helpers.Differentiate(Position, 0, 1, Dimension);
+                ONFrame.SetCol(R0, 0, Helpers.Normalize(T0));
+                derivatives[0] = T0;
 
-            // RMF frame is the same as frenet frame in Dimension <= 2
-            if (Frame == FrameModel.Bishop && Dimension > 2)
-            {
-                // In RMF we cache the frame along the curve
-                // and do a lookup + interpolation in Evaluate
-                // only if the curve is at least degree 2, a degree 1 curve 
-                // would just return the tangent between the correct control
-                // nodes in RMF and Frenet, since it would just be a polyline
-                if (Degree > 1)
+                // Calculate derivatives beyong tangent
+                for (int d = 1; d < Degree; d++)
                 {
-                    N0 = ONFrame.GetCol(R0, 1);
-                    double[] B0 = ONFrame.GetCol(R0, 2);
-                    double[] previousP = Position(0);
-                    double[] previousT = T0;
-                    double[] previousN = N0;
-                    double[] newT;
-                    double[] calcT;
-                    double[] newN;
-                    double[] newB;
-                    double[] v1;
-                    double[] v2;
+                    //d+1th derivative
+                    derivatives[d] = Helpers.Differentiate(Position, 0, d + 1, Dimension);
+                    ONFrame.SetCol(R0, d, Helpers.Normalize(derivatives[d]));
+                }
+                // Find the other ON bases if they exist, now R0 is square
+                if (Dimension > Degree) R0 = ONFrame.R0_FromR_Complete(R0);
 
-                    RCache[0] = R0;
-                    for (int i = 1; i < CacheSamples; i++)
+                // RMF frame is the same as frenet frame in Dimension <= 2
+                if (Frame == FrameModel.Bishop && Dimension > 2)
+                {
+                    // In RMF we cache the frame along the curve
+                    // and do a lookup + interpolation in Evaluate
+                    // only if the curve is at least degree 2, a degree 1 curve 
+                    // would just return the tangent between the correct control
+                    // nodes in RMF and Frenet, since it would just be a polyline
+                    if (Degree > 1)
                     {
-                        // Construct the sequential frame that minimizes rotation of N0 from the previous frame.
-                        double t = (double)i / (CacheSamples - 1);
+                        N0 = ONFrame.GetCol(R0, 1);
+                        double[] B0 = ONFrame.GetCol(R0, 2);
+                        double[] previousP = Position(0);
+                        double[] previousT = T0;
+                        double[] previousN = N0;
+                        double[] newT;
+                        double[] calcT;
+                        double[] newN;
+                        double[] newB;
+                        double[] v1;
+                        double[] v2;
 
-                        double[] p = Position(t);
-                        v1 = Helpers.Subtract(p, previousP);
-                        calcT = Helpers.Normalize(v1);
-                        newT = Helpers.Subtract(previousT, Helpers.Multiply(2 * Helpers.Dot(previousT, v1) / Helpers.Dot(v1, v1), v1));
-                        newN = Helpers.Subtract(previousN, Helpers.Multiply(2 * Helpers.Dot(previousN, v1) / Helpers.Dot(v1, v1), v1));
-
-                        v2 = Helpers.Subtract(calcT, newT);
-                        if (Helpers.Len(v2) > 1E-8)
+                        RCache[0] = R0;
+                        for (int i = 1; i < CacheSamples; i++)
                         {
-                            newN = Helpers.Subtract(newN, Helpers.Multiply(2 * Helpers.Dot(newN, v2) / Helpers.Dot(v2, v2), v2));
+                            // Construct the sequential frame that minimizes rotation of N0 from the previous frame.
+                            double t = (double)i / (CacheSamples - 1);
+
+                            double[] p = Position(t);
+                            v1 = Helpers.Subtract(p, previousP);
+                            calcT = Helpers.Normalize(v1);
+                            newT = Helpers.Subtract(previousT, Helpers.Multiply(2 * Helpers.Dot(previousT, v1) / Helpers.Dot(v1, v1), v1));
+                            newN = Helpers.Subtract(previousN, Helpers.Multiply(2 * Helpers.Dot(previousN, v1) / Helpers.Dot(v1, v1), v1));
+
+                            v2 = Helpers.Subtract(calcT, newT);
+                            if (Helpers.Len(v2) > 1E-8)
+                            {
+                                newN = Helpers.Subtract(newN, Helpers.Multiply(2 * Helpers.Dot(newN, v2) / Helpers.Dot(v2, v2), v2));
+                            }
+
+                            newB = Helpers.Cross3(calcT, newN);
+                            RCache[i] = ONFrame.R0_FromTNB_Complete(calcT, newN, newB);
+
+                            previousN = newN;
+                            previousT = calcT;
+                            previousP = p;
                         }
-
-                        newB = Helpers.Cross3(calcT, newN);
-                        RCache[i] = ONFrame.R0_FromTNB_Complete(calcT, newN, newB);
-
-                        previousN = newN;
-                        previousT = calcT;
-                        previousP = p;
                     }
                 }
             }
+            else
+            {
+                // minimal: just a fixed frame, no caches
+                RCache = System.Array.Empty<double[,]>();
+                //R0 = RigidTransform.Identity(Dimension).R; // or from first segment’s tangent
+                T0 = Helpers.Differentiate(Position, 0, 1, Dimension);// new double[Dimension];       // optional
+                R0 = ONFrame.R0_FromT_Complete(T0);
+                N0 = null;
+            }
         }
+
+        
 
         /// <summary>
         /// Evaluating the Spline curve is done in a few steps.
@@ -184,7 +266,7 @@ namespace ArcFrame.Core.Math.Geometry.Splines
         /// G = degree + 1 control point column vectors whose first index is floor(t*(controlpoints.length - degree))
         /// B = basis matrix, controls the type of spline being generated.
         /// 
-        /// Step 1: Get parameter t in [0, 1] from s in [0, Length] (s / Length)\
+        /// Step 1: Get parameter t in [0, 1] from s in [0, Length] (s / Length)
         /// Step 2: Get degree+1 control points from t. Put this in Nx(d+1) matrix G (N is dimension).
         /// Step 3: Form t' with successive powers of t up to t^degree
         /// Step 4: Multiply the matrices to get the position p(t) = GBt'
@@ -200,17 +282,24 @@ namespace ArcFrame.Core.Math.Geometry.Splines
             s = System.Math.Clamp(s, 0, Length);
 
             // Step 1.
-            double t = _table.MapStoT(s);
+            double t = _table.MapSToTUniform(s);//_table.MapStoT(s);
             (int seg, double u) = Locate(t);
             // Step 2.
-            double[,] G = CreateG(seg);
-            double[,] GB = Helpers.Multiply(G, BasisMatrix);
-            // Step 3.
-            double[] tp = PowerMonomials(Degree, u); //len degree + 1
+            //double[,] G = CreateG(seg);
+            double[,] GB = GetSegmentGB(seg);// Helpers.Multiply(G, BasisMatrix);
             // Step 4.
-            double[] P = Helpers.Multiply(GB, tp);
+            double[] P = EvaluateSegmentPosition(seg, u);//Helpers.Multiply(GB, tp);
             // Step 5.
             double[,] R;
+            double[] k;
+            if (FastMode)
+            {
+                // We need T always for frame orientation
+                var T = Helpers.Normalize(Helpers.Differentiate(Position, t, 1, 3));
+                R = ONFrame.R0_FromT_Complete(T);
+                k = new double[System.Math.Max(0, Dimension - 1)];
+                return new Sample(P, R, s, k);
+            }
 
             if (Frame == FrameModel.Bishop && RCache != null && RCache.Length == CacheSamples && RCache[0] != null)
             {
@@ -222,7 +311,7 @@ namespace ArcFrame.Core.Math.Geometry.Splines
                 // Build Frenet-like frame at s (any N) using successive u-derivatives
                 R = BuildFrenetFrameAtS(GB, Degree, u, Dimension);
             }
-            double[] k = new double[System.Math.Max(1, Dimension - 1)]; // Curvatures are filled in different depending on the type of frame used, Frenet or RMF.
+            k = new double[System.Math.Max(1, Dimension - 1)]; // Curvatures are filled in different depending on the type of frame used, Frenet or RMF.
 
             if (Frame == FrameModel.Bishop)
             {
@@ -290,6 +379,48 @@ namespace ArcFrame.Core.Math.Geometry.Splines
         }
 
         /// <summary>
+        /// Test the 3d spline kernel
+        /// </summary>
+        /// <param name="s"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public Frame3d Evaluate3dKernel(double s)
+        {
+            if (Dimension != 3)
+                throw new InvalidOperationException("Evaluate3dKernel only valid for Dimension == 3.");
+
+            // TODO: cache this
+            var desc = Spline3dDescriptorFactory.FromSpline(this);
+
+            unsafe
+            {
+                fixed (double* pSeg = desc.SegmentCoeff)
+                fixed (double* pS = desc.ArcS)
+                fixed (double* pT = desc.ArcT)
+                {
+                    var raw = new Spline3dRaw
+                    {
+                        Degree = desc.Degree,
+                        SegmentCount = desc.SegmentCount,
+                        ControlPointCount = desc.ControlPointCount,
+                        ArcSampleCount = desc.ArcS.Length,
+                        Length = desc.Length,
+                        Frame = desc.Frame,
+                        FastMode = desc.FastMode,
+                        SegmentCoeff = pSeg,
+                        ArcS = pS,
+                        ArcT = pT,
+                        R0 = desc.R0Flat != null ? Mat3d.FromRowMajor(desc.R0Flat) : Mat3d.Identity
+                    };
+
+                    Spline3dKernels.EvaluateAtS(in raw, s, out var p, out var R, out _, out _);
+
+                    return new Frame3d { P = p, R = R };
+                }
+            }
+        }
+
+        /// <summary>
         /// Find a position along the spline given its parameter t in [0, 1]
         /// </summary>
         /// <param name="t"></param>
@@ -298,12 +429,7 @@ namespace ArcFrame.Core.Math.Geometry.Splines
         {
             t = System.Math.Clamp(t, 0, 1);
             (int seg, double localS) = Locate(t);
-            // Step 2.
-            double[,] G = CreateG(seg);
-            // Step 3.
-            double[] tp = PowerMonomials(Degree, localS); //len degree + 1
-            // Step 4.
-            return Helpers.Multiply(Helpers.Multiply(G, BasisMatrix), tp);
+            return EvaluateSegmentPosition(seg, localS);
         }
 
         /// <summary>
@@ -349,17 +475,28 @@ namespace ArcFrame.Core.Math.Geometry.Splines
         }
 
         /// <summary>
-        /// Fine the starting control point given an interpolant along the curve.
+        /// Find the starting control point given an interpolant along the curve.
         /// </summary>
         /// <param name="t"></param>
         /// <returns>Start control point index k, local interpolation along spline segment u.</returns>
         protected virtual (int k, double u) Locate(double t)
         {
+            t = System.Math.Clamp(t, 0.0, 1.0);
+
+            int segCount = ComputeSegmentCount();
+            double seg = t * segCount;
+
+            int i = System.Math.Min(segCount - 1, (int)System.Math.Floor(seg));
+            double u = seg - i;
+
+            // k is a segment index, not a CP index
+            return (i, u);
+            /*(
             if (t > 1) t = 1;
             if (t < 0) t = 0;
             double seg = t * (ControlPoints.Length - Degree);
             int k = System.Math.Min(ControlPoints.Length - (Degree + 1), (int)System.Math.Floor(seg));
-            return (k, seg - k);
+            return (k, seg - k);*/
         }
 
         /// <summary>
@@ -390,7 +527,7 @@ namespace ArcFrame.Core.Math.Geometry.Splines
             double[,] R0c = RCache[i0];
             double[,] R1c = RCache[i1];
 
-            double[,] Rlin = new double[Dimension, Dimension];
+            double[,] Rlin = _rmfBlendScratch;
             for (int r = 0; r < Dimension; r++)
                 for (int c = 0; c < Dimension; c++)
                     Rlin[r, c] = (1 - a) * R0c[r, c] + a * R1c[r, c];
@@ -434,10 +571,9 @@ namespace ArcFrame.Core.Math.Geometry.Splines
 
         double[,] BuildFrameOnly(double ss)
         {
-            double tt = _table.MapStoT(ss);
+            double tt = _table.MapSToTUniform(ss);//_table.MapStoT(ss);
             (int sseg, double suu) = Locate(tt);
-            double[,] Gs = CreateG(sseg);
-            double[,] GBs = Helpers.Multiply(Gs, BasisMatrix);
+            double[,] GBs = GetSegmentGB(sseg);
             return BuildFrenetFrameAtS(GBs, Degree, suu, Dimension);
         }
 
@@ -453,6 +589,46 @@ namespace ArcFrame.Core.Math.Geometry.Splines
                     for (int r = 0; r < Rref.GetLength(0); r++) RtoFix[r, c] = -RtoFix[r, c];
                 }
             }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private double[] EvaluateSegmentPosition(int segStartIndex, double u)
+        {
+            // Clamp seg index defensively
+            if (segStartIndex < 0) segStartIndex = 0;
+            if (segStartIndex >= _gbCache.Length) segStartIndex = _gbCache.Length - 1;
+
+            double[,] GB = _gbCache[segStartIndex];
+
+            // Fill [1, u, u^2, ..., u^Degree] into scratch buffer
+            double p = 1.0;
+            for (int i = 0; i <= Degree; i++)
+            {
+                _uScratch[i] = p;
+                p *= u;
+            }
+
+            // Multiply GB (Dimension x (Degree+1)) by _uScratch ((Degree+1) vector)
+            double[] P = new double[Dimension];
+            for (int r = 0; r < Dimension; r++)
+            {
+                double acc = 0.0;
+                for (int c = 0; c <= Degree; c++)
+                {
+                    acc += GB[r, c] * _uScratch[c];
+                }
+                P[r] = acc;
+            }
+
+            return P;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        private double[,] GetSegmentGB(int segStartIndex)
+        {
+            if (segStartIndex < 0) segStartIndex = 0;
+            if (segStartIndex >= _gbCache.Length) segStartIndex = _gbCache.Length - 1;
+            return _gbCache[segStartIndex];
         }
     }
 }

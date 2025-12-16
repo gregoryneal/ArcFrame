@@ -3,6 +3,7 @@ using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
 using System.Collections.Generic;
 using System;
+using ArcFrame.Solvers.Core;
 
 namespace ArcFrame.Core.Constraints
 {
@@ -125,6 +126,14 @@ namespace ArcFrame.Core.Constraints
             return res;
         }
         /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            var res = _inner.Residual(ctx);
+            if (Weight != 1.0)
+                for (int i = 0; i < res.Length; i++) res[i] *= Weight;
+            return res;
+        }
+        /// <inheritdoc/>
         public void ShowInfo()
         {
             Type t = GetType();
@@ -152,6 +161,12 @@ namespace ArcFrame.Core.Constraints
         public double[] Residual(IReadOnlyList<CurveSpec> specs)
         {
             return new[] { Weight * specs[_segIdx].Length };
+        }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            return new[] { Weight * ctx.Specs[_segIdx].Length };
         }
         /// <inheritdoc/>
         public void ShowInfo()
@@ -203,6 +218,15 @@ namespace ArcFrame.Core.Constraints
         /// Weight of curvature residual
         /// </summary>
         public double wC2 { get; } = 1.0;
+
+        /// <summary>
+        /// The index of the last sample of the left segment in the iteration context sample array
+        /// </summary>
+        private int? _sampleIndexL;
+        /// <summary>
+        /// The index of the first sample of the right segment in the iteration context sample array
+        /// </summary>
+        private int? _sampleIndexR;
         /// <inheritdoc/>
         public CompositeCurveJointConstraint(int leftIndex, int rightIndex, bool c0 = true, bool c1 = true, bool c2 = false, ConstraintType type = ConstraintType.Hard, double weight = 1.0, double wC0 = 1.0, double wC1 = 1.0, double wC2 = 1.0)
         {
@@ -256,6 +280,126 @@ namespace ArcFrame.Core.Constraints
             if (Weight != 1.0) for (int i = 0; i < r.Length; i++) r[i] *= Weight;
             return r;
         }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            // TODO: Proper implementation that uses IterationContext and lerps the samples perhaps
+            //Console.WriteLine($"LeftIndex: {LeftIndex} | RightIndex: {RightIndex}");
+            //foreach (var spec in specs) spec.ShowInfo();
+            int idxL;
+            var li = ctx.Specs[LeftIndex];
+            var ri = ctx.Specs[RightIndex];
+            int N = ctx.Specs[0].N;
+            if (!_sampleIndexL.HasValue)
+            {
+                if (LeftIndex == ctx.Specs.Count - 1) _sampleIndexL = ctx.S.Length - 1;
+                // ensure we use IterationContext.Build_IncludeStartAndEnd
+                else
+                {
+                    _sampleIndexL = System.Math.Max(0, Array.LastIndexOf(ctx.SegIdx, LeftIndex));
+                    if (_sampleIndexL == 0)
+                    {
+                        // default to final sample
+                        _sampleIndexL = ctx.S.Length - 1;
+                    }
+                }
+            }
+            idxL = _sampleIndexL.Value; 
+            if (idxL >= ctx.S.Length)
+            {
+                double val = 1;
+                int l = 0;
+                if (C0)
+                {
+                    l += N;
+                    val *= wC0;
+                }
+                if (C1)
+                {
+                    l += N;
+                    val *= wC1;
+                }
+                if (C2)
+                {
+                    l += N - 1;
+                    val *= wC2;
+                }
+                if (Weight != 1.0) val *= Weight;
+                double[] ret = new double[l];
+                Array.Fill(ret, val);
+                return ret;
+            }
+
+            int idxR;
+            if (!_sampleIndexR.HasValue)
+            {
+                if (RightIndex == 0) _sampleIndexR = 0;
+                // ensure we use IterationContext.Build_IncludeStartAndEnd
+                else
+                {
+                    // find the start of this segment
+                    _sampleIndexR = System.Math.Max(0, Array.IndexOf(ctx.SegIdx, RightIndex));
+                }
+            }
+            idxR = _sampleIndexR.Value;
+            if (idxR >= ctx.S.Length)
+            {
+                double val = 1;
+                int l = 0;
+                if (C0)
+                {
+                    l += N;
+                    val *= wC0;
+                }
+                if (C1)
+                {
+                    l += N;
+                    val *= wC1;
+                }
+                if (C2)
+                {
+                    l += N - 1;
+                    val *= wC2;
+                }
+                if (Weight != 1.0) val *= Weight;
+                double[] ret = new double[l];
+                Array.Fill(ret, val);
+                return ret;
+            }
+
+            /*
+            IArcLengthCurve Lc = li.GetOptimizedCurve();
+            IArcLengthCurve Rc = ri.GetOptimizedCurve();*/
+
+            //Console.WriteLine($"CompositeCurveJointConstraint pre evaluate {li.Length} | {Lc.Length}");
+            var le = ctx.S[idxL];// Lc.Evaluate(li.Length);     // end of left
+            //Console.WriteLine("CompositeCurveJointConstraint post evaluate left");
+            var rs = ctx.S[idxR];//Rc.Evaluate(0.0);           // start of right
+            //Console.WriteLine("CompositeCurveJointConstraint post evaluate right");
+
+            var list = new List<double>();
+
+            if (C0)
+            {
+                for (int i = 0; i < li.N; i++) list.Add(wC0 * (le.P[i] - rs.P[i]));
+            }
+            if (C1)
+            {
+                for (int i = 0; i < li.N; i++) list.Add(wC1 * (le.T[i] - rs.T[i]));
+            }
+            if (C2)
+            {
+                var kl = li.Kappa.Eval(li.Length);
+                var kr = ri.Kappa.Eval(0.0);
+                int m = System.Math.Min(kl.Length, kr.Length);
+                for (int i = 0; i < m; i++) list.Add(wC2 * (kl[i] - kr[i]));
+            }
+
+            var r = list.ToArray();
+            if (Weight != 1.0) for (int i = 0; i < r.Length; i++) r[i] *= Weight;
+            return r;
+        }
         /// <inheritdoc/>
         public void ShowInfo()
         {
@@ -283,6 +427,18 @@ namespace ArcFrame.Core.Constraints
             {
                 double dki = GetDk(specs[i]);
                 double dkj = GetDk(specs[i + 1]);
+                r.Add(Weight * (dki - dkj));
+            }
+            return r.Count == 0 ? new[] { 0.0 } : r.ToArray();
+        }
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            var r = new List<double>();
+            for (int i = 0; i + 1 < ctx.Specs.Count; i++)
+            {
+                double dki = GetDk(ctx.Specs[i]);
+                double dkj = GetDk(ctx.Specs[i + 1]);
                 r.Add(Weight * (dki - dkj));
             }
             return r.Count == 0 ? new[] { 0.0 } : r.ToArray();
@@ -441,6 +597,72 @@ namespace ArcFrame.Core.Constraints
 
                 P = curve.Position(sGlob);
 
+                //if (seg < curves.Length) P = curve.Position(sGlob);
+                //else P = curves[^1].Position(curves[^1].Length);
+
+
+                // Find the closest point around from P to the search window in _left
+                // In the window around index _hintL. Update _hintL so it doesn't fall
+                // Behind out of a favorable search window.
+                var (hint, _, pos_l, r_l) = _left.Project(P, _hintL, _searchWin);
+                _hintL = hint;
+                // (P - pos_l) • nor_l => >0 it is on the inside (same direction), <0 on the outside
+                double[] n = Helpers.Multiply(ONFrame.GetCol(r_l, 1), _flipL);
+                pos_l = Helpers.Add(pos_l, Helpers.Multiply(n, _buffer));
+                double dL = Helpers.Dot(Helpers.Subtract(P, pos_l), n);
+                //Console.WriteLine($"Bounded Curve left penalty: {dL}");
+                //double dxL = P[0] - pos_l[0], dyL = P[1] - pos_l[1];
+                //double dL = (dxL * nor_l[0] + dyL * nor_l[1]) * _flipL;
+
+                // Signed distance to right (inward normal)
+                var (hint2, _, pos_r, r_r) = _right.Project(P, _hintR, _searchWin);
+                _hintR = hint2;
+                n = Helpers.Multiply(ONFrame.GetCol(r_r, 1), _flipR);
+                pos_r = Helpers.Add(pos_r, Helpers.Multiply(n, _buffer));
+                double dR = Helpers.Dot(Helpers.Subtract(P, pos_r), n);
+                //Console.WriteLine($"Bounded Curve right penalty: {dR}");
+                //double dxR = P[0] - pos_r[0], dyR = P[1] - pos_r[1];
+                //double dR = (dxR * nor_r[0] + dyR * nor_r[1]) * _flipR;
+
+                // Inside if both >= 0; otherwise hinge back to 0
+                double pen = 0.0;
+                if (dL < 0) pen += -dL;
+                if (dR < 0) pen += -dR;
+
+                //Console.WriteLine($"Bounded Curve penalty at P: {pen}");
+                //Helpers.PrintVector(P);
+
+                if (pen > 0) res[k] = Weight * pen;
+            }
+
+            //Console.WriteLine("BoundedCurveConstraint residuals: ");
+            //Helpers.PrintVector([.. res]);
+            return res;
+        }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            var curves = ctx.Curves;
+            double Ltot = ctx.Prefix[^1];
+            // Check each sample in the context
+            var M = ctx.S.Length;
+            var res = new double[M];
+            if (Ltot == 0) return res;
+            if (Ltot < 0)
+            {
+                //discourage negative lengths
+                for (int i = 0; i < M; i++) res[i] = -Ltot;
+                return res;
+            }
+
+            _hintL = 0;
+            _hintR = 0;
+
+            for (int k = 0; k < M; k++)
+            {
+                // Test point for the residual
+                double[] P = ctx.S[k].P;
                 //if (seg < curves.Length) P = curve.Position(sGlob);
                 //else P = curves[^1].Position(curves[^1].Length);
 

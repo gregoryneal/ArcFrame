@@ -80,15 +80,15 @@ namespace ArcFrame.Core.Params
         /// <returns></returns>
         public IArcLengthCurve GetOptimizedCurve()
         {
-            double k = Kappa.Eval(0)[0];
+            
             if (Kappa.IsLinear)
             {
                 //Console.WriteLine("Optimizing for clothoid");
-                var eval = new BFEvaluator();
-                return new Clothoid(this, eval);
+                return Clothoid.FromSpec(this);
             }
             else if (Kappa.IsConstant)
             {
+                double k = Kappa.Eval(0)[0];
                 if (k != 0)
                 {
                     //Console.WriteLine("Optimizing for arc");
@@ -101,7 +101,7 @@ namespace ArcFrame.Core.Params
                 else
                 { 
                     //Console.WriteLine("Optimizing for line");
-                    return new Line(P0, Helpers.Add(P0, Helpers.Multiply(Length, GetONAxis(0))));
+                    return new Line(P0, Helpers.Add(P0, Helpers.Multiply(Length, GetONAxis(0))), GetONAxis(2));
                 }
             }
             else
@@ -128,6 +128,9 @@ namespace ArcFrame.Core.Params
             Console.WriteLine();
             Console.WriteLine($"FrameModel: {Frame}");
             Console.WriteLine($"CurvatureLaw: {Kappa.GetType().Name}");
+            Console.Write($"CurvatureParams: ");
+            Helpers.PrintVector((Kappa as IParamCurvatureLaw)!.GetParams());
+            Console.WriteLine();
             Console.WriteLine("============ Curve Info ============");
             Console.WriteLine();
         }

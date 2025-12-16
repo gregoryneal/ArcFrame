@@ -1,8 +1,14 @@
 ﻿using ArcFrame.Core.Geometry;
 using ArcFrame.Core.Math;
 using ArcFrame.Core.Params;
-using System.Collections.Generic;
+using ArcFrame.Core.Results;
+using ArcFrame.Solvers;
+using ArcFrame.Solvers.Core;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.ConstrainedExecution;
+using System.Threading;
 
 namespace ArcFrame.Core.Constraints
 {
@@ -32,6 +38,12 @@ namespace ArcFrame.Core.Constraints
         ConstraintType Type { get; }
         /// <summary>Return residual vector for the given spec.</summary>
         double[] Residual(CurveSpec spec);
+        /// <summary>
+        /// Build a residual from a given cached Sample object
+        /// </summary>
+        /// <param name="ctx"></param>
+        /// <returns></returns>
+        double[] Residual(IterationContext ctx);
         /// <summary>Optional global weight to scale all residuals for this constraint.</summary>
         double Weight => 1.0;
         /// <summary>
@@ -54,6 +66,12 @@ namespace ArcFrame.Core.Constraints
         double Weight { get; }               // multiplies the whole residual block
         /// <summary>Return residual vector for the given spec.</summary>
         double[] Residual(IReadOnlyList<CurveSpec> specs);
+        /// <summary>
+        /// Build a residual from a given cached Sample object
+        /// </summary>
+        /// <param name="ctx"></param>
+        /// <returns></returns>
+        double[] Residual(IterationContext ctx);
         /// <summary>
         /// Display the information about this constraint in the console. For debug purposes.
         /// </summary>
@@ -86,6 +104,13 @@ namespace ArcFrame.Core.Constraints
             double dk = (p != null && p.Length >= 2) ? p[1] : 0.0;
             return new[] { Weight * dk };
         }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            var spec = ctx.Specs[0];
+            return Residual(spec);
+        }
     }
 
 
@@ -115,6 +140,8 @@ namespace ArcFrame.Core.Constraints
         /// The weight of the tangent residual
         /// </summary>
         public double wT { get; } = 1.0;
+
+        private int? _sampleIndex;
         /// <inheritdoc/>
         public StartPoseConstraint(int segmentIndex, double[] targetP, double[] targetT,
                                    ConstraintType type = ConstraintType.Hard, double weight = 1.0,
@@ -129,6 +156,47 @@ namespace ArcFrame.Core.Constraints
             var cur = new CachedIntrinsicCurve(spec);
             var smp = cur.Evaluate(0.0);
             var r = new List<double>(spec.N * 2);
+            for (int i = 0; i < spec.N; i++) r.Add(wP * (smp.P[i] - TargetP[i]));
+            for (int i = 0; i < spec.N; i++) r.Add(wT * (smp.T[i] - TargetT[i]));
+            if (Weight != 1.0) for (int i = 0; i < r.Count; i++) r[i] *= Weight;
+            return r.ToArray();
+        }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            int idx;
+            if (_sampleIndex.HasValue) idx = _sampleIndex.Value;
+            else
+            {   
+                // if we dont chain the curve specs we can optimize the position of each segment directly
+                if (ctx.Mode == CompositeCurveSolver.CompositeSolverMode.Seperate)
+                {
+                    _sampleIndex = System.Math.Max(0, Array.IndexOf(ctx.SegIdx, SegmentIndex));
+                }
+                // otherwise we can only optimize the position of the first segment
+                else
+                {
+                    _sampleIndex = 0;
+                }
+
+                idx = _sampleIndex.Value;
+            }
+            var smp = ctx.S[idx];
+            var spec = ctx.Specs[SegmentIndex];
+            var r = new List<double>(spec.N * 2);
+            if (idx >= ctx.S.Length)
+            {
+                for (int i = 0; i < spec.N; i++)
+                {
+                    r.Add(wP * Weight);
+                }
+                for (int i = 0; i < spec.N; i++)
+                {
+                    r.Add(wT * Weight);
+                }
+                return r.ToArray();
+            }
             for (int i = 0; i < spec.N; i++) r.Add(wP * (smp.P[i] - TargetP[i]));
             for (int i = 0; i < spec.N; i++) r.Add(wT * (smp.T[i] - TargetT[i]));
             if (Weight != 1.0) for (int i = 0; i < r.Count; i++) r[i] *= Weight;
@@ -163,6 +231,8 @@ namespace ArcFrame.Core.Constraints
         public int SegmentIndex { get; }
         /// <inheritdoc/>
         public double Weight { get; }
+
+        private int? _sampleIndex;
         /// <inheritdoc/>
         public EndPoseConstraint(int segmentIndex, double[] targetP, double[] targetT,
                                    ConstraintType type = ConstraintType.Hard, double weight = 1.0,
@@ -190,6 +260,66 @@ namespace ArcFrame.Core.Constraints
             for (int i = 0; i < spec.N; i++) r.Add(wP * (smp.P[i] - TargetP[i]));
             for (int i = 0; i < spec.N; i++) r.Add(wT * (smp.T[i] - TargetT[i]));
             if (Weight != 1.0) for (int i = 0; i < r.Count; i++) r[i] *= Weight;
+            return r.ToArray();
+        }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            int idx;
+            var spec = ctx.Specs[SegmentIndex];
+            var r = new List<double>(spec.N * 2);
+            if (!_sampleIndex.HasValue)
+            {
+                if (SegmentIndex == ctx.Specs.Count - 1) _sampleIndex = ctx.S.Length - 1;
+                // ensure we use IterationContext.Build_IncludeStartAndEnd
+                else
+                {
+                    if (ctx.Mode == CompositeCurveSolver.CompositeSolverMode.Seperate)
+                    {
+                        // end of this segment is the final sample with this segment index
+                        _sampleIndex = System.Math.Max(0, Array.LastIndexOf(ctx.SegIdx, SegmentIndex));
+                    }
+                    else
+                    {
+                        _sampleIndex = ctx.S.Length - 1;
+                    }
+                    if (_sampleIndex == 0)
+                    {
+                        // default to final sample
+                        _sampleIndex = ctx.S.Length - 1;
+                    }
+                }
+            }
+            idx = _sampleIndex.Value;
+            if (idx >= ctx.S.Length)
+            {
+                for (int i = 0; i < spec.N; i++)
+                {
+                    r.Add(wP * Weight);
+                }
+                for (int i = 0; i < spec.N; i++)
+                {
+                    r.Add(wT * Weight);
+                }
+                return r.ToArray();
+            }
+
+            //Console.WriteLine($"looking for index {idx} in array with max index {ctx.S.Length - 1}, seg count: {ctx.Specs.Count}");
+            //Helpers.PrintVector(ctx.SegIdx.Select(i => (double)i).ToArray());
+            var smp = ctx.S[idx];
+            for (int i = 0; i < spec.N; i++)
+            {
+                r.Add(wP * (smp.P[i] - TargetP[i]));
+            }
+            for (int i = 0; i < spec.N; i++)
+            {
+                r.Add(wT * (smp.T[i] - TargetT[i]));
+            }
+            if (Weight != 1.0)
+            {
+                for (int i = 0; i < r.Count; i++) r[i] *= Weight;
+            }
             return r.ToArray();
         }
     }
@@ -248,6 +378,47 @@ namespace ArcFrame.Core.Constraints
             {
                 var T = smp.T;
                 for (int i = 0; i < spec.N; i++) r.Add(wT * (T[i] - TargetT[i]));
+            }
+            return r.ToArray();
+        }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            //int segIdx = System.Math.Clamp(SegmentIndex, 0, ctx.Specs.Count - 1);
+            int N = ctx.Specs[0].N;
+            (int sampleIdx, bool isExact) = Helpers.BinarySearch(ctx.SGlob, this.s);
+            Sample smp;
+            if (isExact)
+            {
+                smp = ctx.S[sampleIdx];
+            }
+            else
+            {
+                // if we didn't find the exact match the index tells us 
+                // the index of the first item larger than value
+                double interpDs = (s - ctx.SGlob[sampleIdx - 1]) / ctx.Ds;
+                double sLoc = ctx.SGlob[sampleIdx - 1] + (interpDs * ctx.Ds);
+                Sample s0 = ctx.S[sampleIdx - 1];
+                Sample s1 = ctx.S[sampleIdx];
+                smp = new Sample()
+                {
+                    k = Helpers.Add(s0.k, Helpers.Multiply(interpDs, Helpers.Subtract(s1.k, s0.k))),
+                    P = Helpers.Add(s0.P, Helpers.Multiply(interpDs, Helpers.Subtract(s1.P, s0.P))),
+                    R = Helpers.Add(s0.R, Helpers.Multiply(interpDs, Helpers.Subtract(s1.R, s0.R))),
+                    s = sLoc,
+                };
+            }
+            var r = new List<double>();
+
+            if (TargetP != null)
+            {
+                for (int i = 0; i < N; i++) r.Add(wP * (smp.P[i] - TargetP[i]));
+            }
+            if (TargetT != null)
+            {
+                var T = smp.T;
+                for (int i = 0; i < N; i++) r.Add(wT * (T[i] - TargetT[i]));
             }
             return r.ToArray();
         }
@@ -320,6 +491,39 @@ namespace ArcFrame.Core.Constraints
             }
             return res;
         }
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            // 1. clamp the desired values
+            // 2. find the index bounds that fully encompass desired arc length bounds
+            // 3. recalculate arc length interval
+            double s0_actual = System.Math.Clamp(s0, 0, ctx.Prefix[^1]);
+            double s1_actual = System.Math.Clamp(s1, 0, ctx.Prefix[^1]);
+            (int s0_idx, bool isExact0) = Helpers.BinarySearch(ctx.SGlob, s0_actual);
+            // the start sample index
+            s0_idx = System.Math.Clamp(s0_idx - 1, 0, ctx.SGlob.Length - 1);
+            (int s1_idx, bool isExact1) = Helpers.BinarySearch(ctx.SGlob, s1_actual);
+            // the end sample index
+            s1_idx = System.Math.Clamp(s1_idx, 0, ctx.SGlob.Length - 1);
+
+            if (s0_idx > s1_idx) (s0_idx, s1_idx) = (s1_idx, s0_idx);
+            int M = s1_idx - s0_idx + 1;
+            double[] res = new double[M];
+            double s, t;
+            int sIdx;
+            Sample smp;
+            double[] P;
+            for (int i = 0; i < M; i++)
+            {
+                sIdx = s0_idx + i;
+                smp = ctx.S[sIdx];
+                s = smp.s;
+                P = smp.P;
+                t = Helpers.Dot(n, P) - d;
+                res[i] = Weight * (OneSided ? System.Math.Min(0.0, t) : t);
+            }
+            return res;
+        }
     }
 
     /// <summary>
@@ -377,6 +581,36 @@ namespace ArcFrame.Core.Constraints
             }
             return res;
         }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            // 1. clamp the desired values
+            // 2. find the index bounds that fully encompass desired arc length bounds
+            // 3. recalculate arc length interval
+            double s0_actual = System.Math.Clamp(s0, 0, ctx.Prefix[^1]);
+            double s1_actual = System.Math.Clamp(s1, 0, ctx.Prefix[^1]);
+            (int s0_idx, bool isExact0) = Helpers.BinarySearch(ctx.SGlob, s0_actual);
+            // the start sample index
+            s0_idx = System.Math.Clamp(s0_idx - 1, 0, ctx.SGlob.Length - 1);
+            (int s1_idx, bool isExact1) = Helpers.BinarySearch(ctx.SGlob, s1_actual);
+            // the end sample index
+            s1_idx = System.Math.Clamp(s1_idx, 0, ctx.SGlob.Length - 1);
+
+            if (s0_idx > s1_idx) (s0_idx, s1_idx) = (s1_idx, s0_idx);
+            int M = s1_idx - s0_idx + 1;
+            double[] res = new double[M];
+            int sIdx;
+            Sample smp;
+            for (int i = 0; i < M; i++)
+            {
+                sIdx = s0_idx + i;
+                smp = ctx.S[sIdx];
+                double kn = Helpers.Len(smp.k);
+                res[i] = Weight * System.Math.Max(0.0, kn - kMax);
+            }
+            return res;
+        }
     }
 
     /// Curvature value at s=0 or s=L for a segment.
@@ -426,6 +660,16 @@ namespace ArcFrame.Core.Constraints
             double r = (k - TargetK) * Weight;
             return new[] { r };
         }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            double k = Location == Where.Start
+                ? ctx.S[0].k[0]
+                : ctx.S[^1].k[0];
+            double r = (k - TargetK) * Weight;
+            return new[] { r };
+        }
     }
 
     /// <summary>
@@ -450,6 +694,17 @@ namespace ArcFrame.Core.Constraints
             double dk = (p.Length >= 2) ? p[1] : 0.0;
             return new[] { Weight * dk };
         }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            int idx = System.Math.Clamp(SegmentIndex, 0, ctx.Specs.Count - 1);
+            var plc = ctx.Specs[idx].Kappa as IParamCurvatureLaw;
+            if (plc == null) return new[] { 0.0 };
+            var p = plc.GetParams(); // planar adapter packs [k0, dk]
+            double dk = (p.Length >= 2) ? p[1] : 0.0;
+            return new[] { Weight * dk };
+        }
     }
 
     /// <summary>
@@ -468,6 +723,18 @@ namespace ArcFrame.Core.Constraints
             for (int i = 0; i < r.Length; i++)
             {
                 if (specs[i].Length > 0) r[i] = 0;
+                else r[i] = Weight;
+            }
+            return r;
+        }
+
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            double[] r = new double[ctx.Specs.Count];
+            for (int i = 0; i < r.Length; i++)
+            {
+                if (ctx.Specs[i].Length > 0) r[i] = 0;
                 else r[i] = Weight;
             }
             return r;
@@ -497,6 +764,15 @@ namespace ArcFrame.Core.Constraints
         {
             var p = (spec.Kappa as IParamCurvatureLaw)?.GetParams(); // [k0, τ0, ..., dk, dτ, ...]
             if (p == null) return new[] { 0.0 };
+            double mag = Helpers.Len(p);
+            return new[] { Weight * mag };
+        }
+        /// <inheritdoc/>
+        public double[] Residual(IterationContext ctx)
+        {
+            int idx = System.Math.Clamp(SegmentIndex, 0, ctx.Specs.Count - 1);
+            var p = (ctx.Specs[idx].Kappa as IParamCurvatureLaw)?.GetParams(); // [k0, τ0, ..., dk, dτ, ...]
+            if (p == null) return new[] { Weight };
             double mag = Helpers.Len(p);
             return new[] { Weight * mag };
         }

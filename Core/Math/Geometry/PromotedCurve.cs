@@ -16,10 +16,17 @@ namespace ArcFrame.Core.Geometry
 
         /// <summary>
         /// Create an embedded curve with an optional axis remapping.
+        /// The axis map will control how you remap the inner curve.
+        /// Example: 2D -> [0, 1]: static embedding, no remap
+        ///             -> [1, 0]: maps X to Y and Y to X
+        ///          3D -> [0, 1, 2]: static embedding
+        ///             -> [1, 0, 2]: maps X to Y and Y to X and Z to Z
+        ///             -> [2, 0, 1]: Maps X to Z and Y to X and Z to Y
+        ///             -> etc...
         /// </summary>
         /// <param name="inner"></param>
         /// <param name="targetN"></param>
-        /// <param name="axisMap"></param>
+        /// <param name="axisMap">[newXIndex, newYIndex, newZIndex, ...]</param>
         /// <exception cref="ArgumentException"></exception>
         public PromotedCurve(IArcLengthCurve inner, int targetN, int[]? axisMap = null)
         {

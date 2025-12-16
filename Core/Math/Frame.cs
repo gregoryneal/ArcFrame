@@ -36,6 +36,21 @@ namespace ArcFrame.Core.Math
     }
 
     /// <summary>
+    /// Basic 3D position and TNB frame in 3d
+    /// </summary>
+    public struct Frame3d
+    {
+        /// <summary>
+        /// Position
+        /// </summary>
+        public Vec3d P;
+        /// <summary>
+        /// TNB frame 
+        /// </summary>
+        public Mat3d R; // columns: T, N, B or however you want to define it
+    }
+
+    /// <summary>
     /// Helper methods for the creation of orthonormal frames in N dimensions
     /// </summary>
     public static class ONFrame
@@ -272,6 +287,24 @@ namespace ArcFrame.Core.Math
         }
 
         /// <summary>
+        /// Frenet: tridiagonal skew with κ on super/sub-diagonal
+        /// </summary>
+        /// <param name="A">output matrix</param>
+        /// <param name="k">Principal curvatures</param>
+        /// <returns></returns>
+        public static void BuildFrenetSkew(ref double[,] A, double[] k)
+        {
+            int m = k.Length + 1;                 // m = N
+            //var A = new double[m, m];              // zeros
+            for (int i = 0; i < k.Length; i++)
+            {
+                A[i + 1, i] = k[i];
+                A[i, i + 1] = -k[i];
+            }
+            //return A;
+        }
+
+        /// <summary>
         /// Bishop (parallel transport): rotate T minimally; k is the curvature vector in current normal basis.
         /// Here we interpret k[0]..k[N-2] as components along the current normal columns N1..N_{N-1}.
         /// </summary>
@@ -289,6 +322,27 @@ namespace ArcFrame.Core.Math
                 A[j, 0] = k[j - 1]; 
             }
             return A;
+        }
+
+        /// <summary>
+        /// Bishop (parallel transport): rotate T minimally; k is the curvature vector in current normal basis.
+        /// Here we interpret k[0]..k[N-2] as components along the current normal columns N1..N_{N-1}.
+        /// </summary>
+        /// <param name="A">output matrix</param>
+        /// <param name="k">input curvature vectors</param>
+        /// <returns></returns>
+        public static void BuildBishopSkew(ref double[,] A, double[] k)
+        {
+            int N = k.Length + 1;
+            //var A = new double[N, N]; // zeros
+                                      // Couple T (col 0) with normal columns via k components; keep normal plane rotation 0.
+                                      // A_{0,j} = -k_{j-1}, A_{j,0} = k_{j-1} for j=1..N-1
+            for (int j = 1; j < N; j++)
+            {
+                A[0, j] = -k[j - 1];
+                A[j, 0] = k[j - 1];
+            }
+            //return A;
         }
         /*
         public static double[,] BuildBishopSkew(double[] k)
@@ -366,14 +420,72 @@ namespace ArcFrame.Core.Math
                     if (a == b)
                     {
                         if (System.Math.Abs(s - 1.0) > 10 * tol)
-                            throw new ArgumentException("E columns are not unit length.");
+                            OrthonormalizeInPlace(E, tol);
+                            //throw new ArgumentException("E columns are not unit length.");
                     }
                     else
                     {
                         if (System.Math.Abs(s) > 10 * tol)
-                            throw new ArgumentException("E columns are not orthogonal.");
+                            OrthonormalizeInPlace(E, tol);
+                            //throw new ArgumentException("E columns are not orthogonal.");
                     }
                 }
+        }
+
+        /// <summary>
+        /// Orthonormalize a set of column vectors in place
+        /// </summary>
+        /// <param name="E"></param>
+        /// <param name="tol"></param>
+        internal static void OrthonormalizeInPlace(double[,] E, double tol)
+        {
+            if (E == null || E.Length == 0) return;
+            int rows = E.GetLength(0);
+            int cols = E.GetLength(1);
+
+            if (rows == 0 || cols == 0) return;
+            if (cols > rows)
+                throw new ArgumentException("Matrix has more columns than rows; cannot orthonormalize.");
+
+            // Extract columns into a buffer and reuse
+            var colsData = new double[cols][];
+            for (int i = 0; i < cols; i++)
+            {
+                colsData[i] = GetCol(E, i);
+            }
+
+            //ensure the first column is okay
+            var T = colsData[0];
+            var lenT = Helpers.Len(T);
+            if (lenT < tol) T = Helpers.StdBasis(rows, 0); // [1, 0, 0, ...]
+            if (System.Math.Abs(1 - lenT) > tol)
+            {
+                Helpers.NormalizeInPlace(T);
+                colsData[0] = T;
+            }
+
+            for (int col = 1; col < cols; col++)
+            {
+                var currCol = colsData[col];
+
+                if (Helpers.Len(currCol) < tol)
+                    currCol = Helpers.StdBasis(rows, col);
+
+                for (int col2 = 0; col2 < col; col2++)
+                {
+                    double dot = Helpers.Dot(colsData[col], colsData[col2]);
+                    for (int k = 0; k < rows; k++)
+                    {
+                        colsData[col][k] -= dot * colsData[col2][k];
+                    }
+
+                    //var prevCol = colsData[col2];
+                    //currCol = Helpers.Reject(currCol, prevCol);
+                }
+
+                Helpers.NormalizeInPlace(currCol);
+                colsData[col] = currCol;
+            }
         }
 
         internal static double[,] ExtractNormalBlock(double[,] aF)

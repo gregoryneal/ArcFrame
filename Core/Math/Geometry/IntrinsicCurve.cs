@@ -12,13 +12,13 @@ namespace ArcFrame.Core.Geometry
     {
         private readonly CurveSpec _spec;
         private readonly IFrameStepper _stepper;
-        private readonly IntegratorOptions _opt;
+        public IntegratorOptions IntegratorOptions;
 
         /// <inheritdoc/>
         public IntrinsicCurve(CurveSpec spec, IFrameStepper? stepper = null, IntegratorOptions? opt = null)
         {
             _spec = spec;
-            _opt = opt ?? IntegratorOptions.Default;
+            IntegratorOptions = opt ?? IntegratorOptions.Fast;
             _stepper = stepper ?? new LieGroupMidpointStepper();
         }
 
@@ -37,7 +37,7 @@ namespace ArcFrame.Core.Geometry
             double s0 = 0.0;
             while (s0 < s)
             {
-                double h = _opt.SuggestStep(_spec.Kappa.Eval, s0, s);
+                double h = IntegratorOptions.SuggestStep(_spec.Kappa.Eval, s0, s);
                 //Console.WriteLine($"Suggested step size: {h} ({s0},{s})");
                 if (h <= 0) break;
                 _stepper.Step(ref P, ref R, _spec.Kappa.Eval, s0, h, _spec.Frame);

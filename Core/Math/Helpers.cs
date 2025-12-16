@@ -1,4 +1,6 @@
-﻿using System;
+﻿using ArcFrame.Core.Kernels;
+using ArcFrame.Core.Results;
+using System;
 
 namespace ArcFrame.Core.Math
 {
@@ -14,13 +16,49 @@ namespace ArcFrame.Core.Math
         /// <returns></returns>
         public static double[] Normalize(double[] v)
         {
-            double s = 0;
-            foreach (var x in v) s += x * x;
-            s = System.Math.Sqrt(s);
+            var r = (double[])v.Clone();
+            NormalizeInPlace(r);
+            return r;
+        }
+        /*
+        public static double[] Normalize(double[] v)
+        {
+            double s = Len(v);
             var r = (double[])v.Clone();
             if (s > 0) for (int i = 0; i < r.Length; i++) r[i] /= s;
             return r;
+        }*/
+
+        /// <summary>
+        /// Normalize in place
+        /// </summary>
+        /// <param name="v"></param>
+        public static void NormalizeInPlace(double[] v)
+        {
+            int l = v.Length;
+            unsafe
+            {
+                // fixed tells the gc to pin the object in memory, i 
+                // guess stuff gets auto reallocated all the time but we
+                // do need it in place while we iterate over the array
+                // vp is pointer to start of array in memory
+                fixed (double* vp = v)
+                {
+                    var len = System.Math.Sqrt(HpcMathNd.Dot(l, vp, vp));
+                    if (len > 0)
+                    {
+                        var inv = 1.0 / len;
+                        HpcMathNd.Scale(l, inv, vp, vp);
+                    }
+                }
+            }
         }
+        /*
+        public static void NormalizeInPlace(double[] v)
+        {
+            var s = Len(v);
+            if (s > 0) for (int i = 0; i < v.Length; i++) v[i] /= s;
+        }*/
 
         /// <summary>
         /// 3D determinant on square matrix
@@ -29,11 +67,23 @@ namespace ArcFrame.Core.Math
         /// <returns></returns>
         public static double Det3(double[,] M)
         {
+            double[] ma = ONFrame.GetCol(M, 0);
+            double[] mb = ONFrame.GetCol(M, 1);
+            double[] mc = ONFrame.GetCol(M, 2);
+            Vec3d a = new Vec3d(ma[0], ma[1], ma[2]);
+            Vec3d b = new Vec3d(mb[0], mb[1], mb[2]);
+            Vec3d c = new Vec3d(mc[0], mc[1], mc[2]);
+
+            return HpcMath3d.Det(a, b, c);
+        }
+        /*
+        public static double Det3(double[,] M)
+        {
             return
                 M[0, 0] * (M[1, 1] * M[2, 2] - M[1, 2] * M[2, 1]) -
                 M[0, 1] * (M[1, 0] * M[2, 2] - M[1, 2] * M[2, 0]) +
                 M[0, 2] * (M[1, 0] * M[2, 1] - M[1, 1] * M[2, 0]);
-        }
+        }*/
 
         /// <summary>
         /// 3D cross product
@@ -41,7 +91,15 @@ namespace ArcFrame.Core.Math
         /// <param name="a"></param>
         /// <param name="b"></param>
         /// <returns></returns>
-        public static double[] Cross3(double[] a, double[] b) => new[] { (a[1] * b[2]) - (a[2] * b[1]), (a[2] * b[0]) - (a[0] * b[2]), (a[0] * b[1]) - (a[1] * b[0]) };
+        public static double[] Cross3(double[] a, double[] b)
+        {
+            Vec3d va = new Vec3d(a[0], a[1], a[2]);
+            Vec3d vb = new Vec3d(b[0], b[1], b[2]);
+
+            Vec3d res = HpcMath3d.Cross(va, vb);
+            return new double[] { res.x, res.y, res.z };
+        }
+        //public static double[] Cross3(double[] a, double[] b) => new[] { (a[1] * b[2]) - (a[2] * b[1]), (a[2] * b[0]) - (a[0] * b[2]), (a[0] * b[1]) - (a[1] * b[0]) };
 
         /// <summary>
         /// N-D Dot product
@@ -53,12 +111,16 @@ namespace ArcFrame.Core.Math
         public static double Dot(double[] a, double[] b)
         {
             if (a.Length != b.Length) throw new RankException("Array size mismatch");
-            double s = 0;
-            for (int i = 0; i < a.Length; i++)
+            int l = a.Length;
+            double dot = 0;
+            unsafe
             {
-                s += a[i] * b[i];
+                fixed(double* pa = a, pb = b)
+                {
+                    dot = HpcMathNd.Dot(l, pa, pb);
+                }
             }
-            return s;
+            return dot;
         }
 
         /// <summary>
@@ -70,11 +132,23 @@ namespace ArcFrame.Core.Math
         /// <returns></returns>
         public static double[] Lerp(double[] a, double[] b, double u)
         {
-            var r = new double[a.Length];
-            for (int i = 0; i < r.Length; i++)
+            if (a == null) throw new ArgumentNullException(nameof(a));
+            if (b == null) throw new ArgumentNullException(nameof(b));
+
+            if (a.Length != b.Length)
+                throw new RankException($"Array size mismatch ({a.Length} != {b.Length})");
+
+            int n = a.Length;
+            var r = new double[n];
+
+            unsafe
             {
-                r[i] = a[i] + u * (b[i] - a[i]);
+                fixed (double* pa = a, pb = b, pr = r)
+                {
+                    HpcMathNd.Lerp(n, u, pa, pb, pr);
+                }
             }
+
             return r;
         }
 
@@ -97,6 +171,22 @@ namespace ArcFrame.Core.Math
         {
             int n = M.GetLength(0);
             int m = M.GetLength(1);
+
+            unsafe
+            {
+                // C# arrays are memory-contiguous in row major form (concat each row together)
+                // thanks goooogle
+                fixed (double* pM = &M[0, 0])
+                {
+                    return HpcMathNd.OneNorm(n, m, pM, rowMajor: true);
+                }
+            }            
+        }
+        /*
+        public static double OneNorm(double[,] M)
+        {
+            int n = M.GetLength(0);
+            int m = M.GetLength(1);
             double mx = 0;
             for (int j = 0; j < m; j++)
             {
@@ -106,7 +196,7 @@ namespace ArcFrame.Core.Math
                 mx = System.Math.Max(mx, col);
             }
             return mx;
-        }
+        }*/
         /// <summary>
         /// Add two N dimensional vectors
         /// </summary>
@@ -116,6 +206,28 @@ namespace ArcFrame.Core.Math
         /// <exception cref="RankException"></exception>
         public static double[] Add(double[] a, double[] b)
         {
+            if (a == null) throw new ArgumentNullException(nameof(a));
+            if (b == null) throw new ArgumentNullException(nameof(b));
+
+            if (a.Length != b.Length)
+                throw new RankException($"Array size mismatch ({a.Length} != {b.Length})");
+
+            int n = a.Length;
+            var result = new double[n];
+
+            unsafe
+            {
+                fixed (double* pa = a, pb = b, pr = result)
+                {
+                    HpcMathNd.Add(n, pa, pb, pr);
+                }
+            }
+
+            return result;
+        }
+        /*
+        public static double[] Add(double[] a, double[] b)
+        {
             if (a.Length != b.Length) throw new RankException($"Array size mismatch ({a.Length} != {b.Length})");
             double[] s = new double[a.Length];
             for (int i = 0; i < a.Length; i++)
@@ -123,7 +235,7 @@ namespace ArcFrame.Core.Math
                 s[i] = a[i] + b[i];
             }
             return s;
-        }
+        }*/
 
         /// <summary>
         /// Add two NxM dimensional matrices
@@ -134,20 +246,27 @@ namespace ArcFrame.Core.Math
         /// <exception cref="RankException"></exception>
         public static double[,] Add(double[,] a, double[,] b)
         {
+            if (a == null) throw new ArgumentNullException(nameof(a));
+            if (b == null) throw new ArgumentNullException(nameof(b));
+
             int n = a.GetLength(0);
             int m = a.GetLength(1);
-            int o = b.GetLength(0);
-            int p = b.GetLength(1);
-            if (n != o || m != p) throw new ArgumentException("Dimension mismatch!");
-            double[,] s = new double[n, m];
-            for (int i = 0; i < n; i++)
+
+            if (n != b.GetLength(0) || m != b.GetLength(1))
+                throw new ArgumentException("Dimension mismatch!");
+
+            var result = new double[n, m];
+            int len = n * m;
+
+            unsafe
             {
-                for (int j = 0; j < m; j++)
+                fixed (double* pa = &a[0, 0], pb = &b[0, 0], pr = &result[0, 0])
                 {
-                    s[i, j] = a[i, j] + b[i, j];
+                    HpcMathNd.Add(len, pa, pb, pr);
                 }
             }
-            return s;
+
+            return result;
         }
 
         /// <summary>
@@ -159,6 +278,28 @@ namespace ArcFrame.Core.Math
         /// <exception cref="RankException"></exception>
         public static double[] Subtract(double[] a, double[] b)
         {
+            if (a == null) throw new ArgumentNullException(nameof(a));
+            if (b == null) throw new ArgumentNullException(nameof(b));
+
+            if (a.Length != b.Length)
+                throw new RankException("Array size mismatch");
+
+            int n = a.Length;
+            var result = new double[n];
+
+            unsafe
+            {
+                fixed (double* pa = a, pb = b, pr = result)
+                {
+                    HpcMathNd.Sub(n, pa, pb, pr);
+                }
+            }
+
+            return result;
+        }
+        /*
+        public static double[] Subtract(double[] a, double[] b)
+        {
             if (a.Length != b.Length) throw new RankException("Array size mismatch");
             double[] s = new double[a.Length];
             for (int i = 0; i < a.Length; i++)
@@ -166,7 +307,7 @@ namespace ArcFrame.Core.Math
                 s[i] = a[i] - b[i];
             }
             return s;
-        }
+        }*/
 
         /// <summary>
         /// Add two NxM dimensional matrices
@@ -175,6 +316,31 @@ namespace ArcFrame.Core.Math
         /// <param name="b"></param>
         /// <returns></returns>
         /// <exception cref="RankException"></exception>
+        public static double[,] Subtract(double[,] a, double[,] b)
+        {
+            if (a == null) throw new ArgumentNullException(nameof(a));
+            if (b == null) throw new ArgumentNullException(nameof(b));
+
+            int n = a.GetLength(0);
+            int m = a.GetLength(1);
+
+            if (n != b.GetLength(0) || m != b.GetLength(1))
+                throw new ArgumentException("Dimension mismatch!");
+
+            var result = new double[n, m];
+            int len = n * m;
+
+            unsafe
+            {
+                fixed (double* pa = &a[0, 0], pb = &b[0, 0], pr = &result[0, 0])
+                {
+                    HpcMathNd.Sub(len, pa, pb, pr);
+                }
+            }
+
+            return result;
+        }
+        /*
         public static double[,] Subtract(double[,] a, double[,] b)
         {
             int n = a.GetLength(0);
@@ -191,7 +357,8 @@ namespace ArcFrame.Core.Math
                 }
             }
             return s;
-        }
+        }*/
+
 
         /// <summary>
         /// Multiply an N dimensional vector by a scalar
@@ -202,13 +369,32 @@ namespace ArcFrame.Core.Math
         /// <exception cref="RankException"></exception>
         public static double[] Multiply(double a, double[] b)
         {
+            if (b == null) throw new ArgumentNullException(nameof(b));
+
+            int n = b.Length;
+            if (n == 0) return Array.Empty<double>();
+
+            var result = new double[n];
+
+            unsafe
+            {
+                fixed (double* pb = b, pr = result)
+                {
+                    HpcMathNd.Scale(n, a, pb, pr);
+                }
+            }
+
+            return result;
+        }
+        /*public static double[] Multiply(double a, double[] b)
+        {
             double[] s = new double[b.Length];
             for (int i = 0; i < b.Length; i++)
             {
                 s[i] = a * b[i];
             }
             return s;
-        }
+        }*/
 
         /// <summary>
         /// Multiply an N dimensional vector by a scalar
@@ -236,6 +422,26 @@ namespace ArcFrame.Core.Math
             if (n1 != n) throw new ArgumentException($"Dimension mismatch. a is [{n0},{n1}] and b is length {n}. You can only multiply an MxN matrix with a length N vector");
 
             double[] c = new double[n0];
+
+            unsafe
+            {
+                fixed (double* pa = &a[0,0], pb = b, pc = c)
+                {
+                    HpcMathNd.MatVec(n0, n1, pa, pb, pc);
+                }
+            }
+
+            return c;
+        }
+        /*
+        public static double[] Multiply(double[,] a, double[] b)
+        {
+            int n = b.Length;
+            int n0 = a.GetLength(0);
+            int n1 = a.GetLength(1);
+            if (n1 != n) throw new ArgumentException($"Dimension mismatch. a is [{n0},{n1}] and b is length {n}. You can only multiply an MxN matrix with a length N vector");
+
+            double[] c = new double[n0];
             double dot;
             //rows of a, rows of c
             for (int i = 0; i < n0; i++)
@@ -250,7 +456,7 @@ namespace ArcFrame.Core.Math
             }
             return c;
         }
-
+        */
         /// <summary>
         /// Multiply two matrices.
         /// </summary>
@@ -259,6 +465,27 @@ namespace ArcFrame.Core.Math
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
         public static double[,] Multiply(double[,] a, double[,] b)
+        {
+            //a is n x k, b is l x m. In order to multiply we need k = l
+            //we will end up with and n x m matrix.
+            int n = a.GetLength(0);
+            int l = b.GetLength(0);
+            int m = b.GetLength(1);
+            int k = a.GetLength(1);
+            if (k != l) throw new ArgumentException("Dimension mismatch");
+            var Z = new double[n, m];
+
+            unsafe
+            {
+                fixed (double* pa = &a[0, 0], pb = &b[0, 0], pz = &Z[0, 0])
+                {
+                    HpcMathNd.MatMul(n, k, m, pa, pb, pz);
+                }
+            }
+
+            return Z;
+        }
+        /*public static double[,] Multiply(double[,] a, double[,] b)
         {
             //a is n x k, b is l x m. In order to multiply we need k = l
             //we will end up with and n x m matrix.
@@ -281,13 +508,33 @@ namespace ArcFrame.Core.Math
                 }
             }
             return Z;
-        }
+        }*/
+
         /// <summary>
         /// Multiply a matrix and a scalar.
         /// </summary>
         /// <param name="a"></param>
         /// <param name="b"></param>
         /// <returns></returns>
+        public static double[,] Multiply(double a, double[,] b)
+        {
+            int n = b.GetLength(0);
+            int m = b.GetLength(1);
+            int len = n * m;
+            if (len <= 0) throw new RankException();
+            var Z = new double[n, m];
+
+            unsafe
+            {
+                fixed (double* pb = &b[0, 0], pz = &Z[0, 0])
+                {
+                    HpcMathNd.Scale(len, a, pb, pz);
+                }
+            }
+
+            return Z;
+        }
+        /*
         public static double[,] Multiply(double a, double[,] b)
         {
             int n = b.GetLength(0);
@@ -301,7 +548,7 @@ namespace ArcFrame.Core.Math
                 }
             }
             return Z;
-        }
+        }*/
 
         /// <summary>
         /// Multiply a matrix and a scalar.
@@ -327,6 +574,7 @@ namespace ArcFrame.Core.Math
         //lower dimensional starting vectors. 
 
         /// <summary>
+        /// Find the vector that is perpendicular to u whose endpoint ends at v's endpoint.
         /// 
         ///       v   ↗^
         ///          / |
@@ -344,11 +592,35 @@ namespace ArcFrame.Core.Math
         /// Reject_u(v) = v - Dot(u, v)u
         /// </summary>
         /// <param name="v">Normalized ND vector</param>
-        /// <param name="u">Normalized ND vector</param>
+        /// <param name="u">Normalized ND vector, this will be perpendicular to the return vector.</param>
         /// <returns></returns>
+        //public static double[] Reject(double[] v, double[] u) {}
+        
         public static double[] Reject(double[] v, double[] u)
         {
             return Subtract(v, Multiply(Dot(v, u), u));
+        }
+
+        /// <summary>
+        /// Project v onto u and return the projected vector
+        /// </summary>
+        /// <param name="v"></param>
+        /// <param name="u"></param>
+        /// <returns></returns>
+        public static double[] Project(double[] v, double[] u)
+        {
+            int n = System.Math.Min(v.Length, u.Length);
+            if (n <= 0) return v;
+            double[] result = new double[n];
+            unsafe
+            {
+                fixed (double* pv = v, pu = u, pr = result)
+                {
+                    HpcMathNd.Project(n, pv, pu, pr);
+                }
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -627,5 +899,39 @@ namespace ArcFrame.Core.Math
             Console.WriteLine("]");
         }
 
+        /// <summary>
+        /// Does a binary search on the array for the value,
+        /// returns the index of the match and a flag specifying
+        /// if the match was exact. If the match is not exact
+        /// the index returned is the index of the next value
+        /// larger than the input value.
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static (int index, bool isExact) BinarySearch(Array array, double value)
+        {
+            int sampleIdx = Array.BinarySearch(array, value);
+            if (sampleIdx < 0)
+            {
+                // if we didn't find the exact match the bitwise complement tells us 
+                // if the value is between two indices or outside of the array
+                int posIdx = -sampleIdx - 1;
+                if (posIdx >= array.Length)
+                {
+                    // outside of the array
+                    return (array.Length - 1, false);
+                }
+                else
+                {
+                    // inside of the array, posIdx is the index of the first
+                    // value that is larger, so our s lies between posIdx - 1 and posIdx
+
+                    return (posIdx, false);
+                }
+            }
+            return (sampleIdx, true);
+        }
     }
 }
+

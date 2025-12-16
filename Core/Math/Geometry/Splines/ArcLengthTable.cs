@@ -51,6 +51,58 @@ namespace ArcFrame.Core.Geometry.Splines
             if (sQuery < 0) sQuery = 0;
             return sQuery / Length;
         }
-    }
 
+        /// <summary>
+        /// Maps arc length s in [0, L] to the normalized spline parameter t in [0, 1].
+        /// </summary>
+        /// <param name="sQuery">The arc length (s) value to map.</param>
+        /// <returns>The normalized spline parameter t corresponding to the given arc length.</returns>
+        public double MapSToTUniform(double sQuery)
+        {
+            // Clamp sQuery to be within the valid arc length range [0, Length]
+            if (sQuery < 0) sQuery = 0;
+            if (sQuery > Length) sQuery = Length;
+
+            // Binary search for the segment in the arc length table
+            int low = 0, high = s.Length - 1;
+            while (low < high)
+            {
+                int mid = (low + high) / 2;
+                if (s[mid] < sQuery)
+                    low = mid + 1;
+                else
+                    high = mid;
+            }
+
+            // Low will be the index of the smallest s[i] that is greater than or equal to sQuery
+            // Interpolate between s[low-1] and s[low]
+            if (low == 0)
+                return t[0]; // Edge case for the first element
+            else if (s[low] == sQuery)
+                return t[low]; // Exact match, no interpolation needed
+            else
+            {
+                // Interpolate between the two closest points
+                double sPrev = s[low - 1];
+                double sNext = s[low];
+                double tPrev = t[low - 1];
+                double tNext = t[low];
+
+                // Linear interpolation of t for the given sQuery
+                double tInterpolated = tPrev + (sQuery - sPrev) * (tNext - tPrev) / (sNext - sPrev);
+                return tInterpolated;
+            }
+        }
+
+        /// <summary>
+        /// Export the currently generated arc length mapping from s to t
+        /// </summary>
+        /// <param name="arcS"></param>
+        /// <param name="arcT"></param>
+        public void Export(out double[] arcS, out double[] arcT)
+        {
+            arcS = s;
+            arcT = t;
+        }
+    }
 }
